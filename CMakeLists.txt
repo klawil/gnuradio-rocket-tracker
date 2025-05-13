@@ -175,16 +175,16 @@ SET(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wno-narrowing -fvisibility=hidden -fPIC")
 
-# list(APPEND altus_tracker_sources
-#   altus-tracker/source.cc
-# )
+list(APPEND altus_tracker_sources
+  altus-tracker/altus_decoder_impl.cc
+)
 
 # list(APPEND altus_tracker_headers)
 
-# add_library(altus_tracker_library
-#   STATIC
-#   ${altus_tracker_sources}
-# )
+add_library(altus_tracker_library
+  STATIC
+  ${altus_tracker_sources}
+)
 
 include(GNUInstallDirs)
 
@@ -211,14 +211,11 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/altus-tracker/" # source director
 #     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/trunk-recorder" # target directory
 # )
 
-
 add_executable(altus-tracker altus-tracker/main.cc) # ${trunk_recorder_sources})
 
 # target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${Boost_LIBRARIES} ${GNURADIO_OSMOSDR_LIBRARIES})
 # target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${GNURADIO_OSMOSDR_LIBRARIES})
-target_link_libraries(altus-tracker ${GNURADIO_ALL_LIBRARIES} ${Boost_LIBRARIES})
-
-#target_link_libraries(trunk-recorder PRIVATE nlohmann_json::nlohmann_json )
+target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${Boost_LIBRARIES})
 
 message(STATUS "All libraries:" ${GNURADIO_ALL_LIBRARIES})
 if(NOT Gnuradio_VERSION VERSION_LESS "3.8")

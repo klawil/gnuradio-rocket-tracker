@@ -1,0 +1,8 @@
+#ifndef CONSTANTS_H
+#define CONSTANTS_H
+
+#define BAUD_RATE 38400
+#define SAMPLE_RATE (BAUD_RATE * 66)
+#define DECIMATED_SAMPLE_RATE (BAUD_RATE * 3)
+
+#endif

@@ -30,6 +30,8 @@
 #include "altus_decoder.h"
 // #include "source.h"
 
+namespace po = boost::program_options;
+
 gr::logger logger("altus-tracker");
 gr::top_block_sptr tb;
 
@@ -114,14 +116,18 @@ void signal_handler(int signal) {
 }
 
 int main(int argc, char **argv) {
-  boost::program_options::options_description desc("Options");
+  po::options_description desc("Options");
   desc.add_options()
     ("help,h", "Help screen")
-    ("version,v", "Version Information");
+    ("version,v", "Version Information")
+    ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
+    ("low_pass_cutoff", po::value<uint32_t>(), "Low pass filter cutoff frequency")
+    ("low_pass_transition", po::value<uint32_t>(), "Low pass filter transition width")
+    ("squelch", po::value<int32_t>(), "Squelch level for power squelch");
 
-  boost::program_options::variables_map vm;
-  boost::program_options::store(parse_command_line(argc, argv, desc), vm);
-  boost::program_options::notify(vm);
+  po::variables_map vm;
+  po::store(parse_command_line(argc, argv, desc), vm);
+  po::notify(vm);
 
   if (vm.count("version")) {
     std::cout << "Version 0.0.1\n";
@@ -133,6 +139,28 @@ int main(int argc, char **argv) {
     std::cout << desc;
     exit(0);
   }
+
+  // Parse the input configurations out
+  if (vm.count("center_freq")) {
+    input_center_freq = vm["center_freq"].as<uint32_t>();
+  }
+  if (vm.count("low_pass_cutoff")) {
+    low_pass_cutoff = vm["low_pass_cutoff"].as<uint32_t>();
+  }
+  if (vm.count("low_pass_transition")) {
+    low_pass_transition = vm["low_pass_transition"].as<uint32_t>();
+  }
+  if (vm.count("squelch")) {
+    power_squelch_level = vm["squelch"].as<int32_t>();
+  }
+
+  // Log the settings
+  std::cout << "Current settings:\n"
+    << " - Center Freq: " << input_center_freq << "\n"
+    << " - Low Pass Cutoff: " << low_pass_cutoff << "\n"
+    << " - Low Pass Transition: " << low_pass_transition << "\n"
+    << " - Squelch: " << power_squelch_level << "\n\n";
+  return 0;
 
   tb = gr::make_top_block("Altus");
 

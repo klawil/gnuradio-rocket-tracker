@@ -21,4 +21,8 @@
 // Number of bytes in an Altus message (32 bytes of data, 2 bytes checksum, 2 bytes terminator)
 #define BYTES_PER_MESSAGE 36
 
+// How far apart to listen for channels
+// #define ALTUS_CHANNEL_WIDTH 50000
+#define ALTUS_CHANNEL_WIDTH 100000
+
 #endif

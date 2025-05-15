@@ -12,4 +12,4 @@ echo "*************"
 echo ""
 ./altus-tracker -h
 ./altus-tracker -v
-./altus-tracker
+./altus-tracker --file=test

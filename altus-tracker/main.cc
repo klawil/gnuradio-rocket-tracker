@@ -1,5 +1,6 @@
 #include <gnuradio/logger.h>
 #include <gnuradio/top_block.h>
+#include <gnuradio/block.h>
 #include <gnuradio/blocks/file_source.h>
 #include <gnuradio/blocks/throttle.h>
 #include <gnuradio/blocks/rotator_cc.h>
@@ -13,6 +14,7 @@
 #include <gnuradio/digital/timing_error_detector_type.h>
 #include <gnuradio/digital/binary_slicer_fb.h>
 #include <gnuradio/digital/constellation.h>
+#include <gnuradio/filter/freq_xlating_fir_filter.h>
 
 #include <gnuradio/blocks/null_sink.h>
 
@@ -34,40 +36,39 @@ namespace po = boost::program_options;
 
 gr::logger logger("altus-tracker");
 gr::top_block_sptr tb;
+bool running = true;
 
+std::vector<gr::block_sptr> blocks;
+
+// These stay constant
 uint32_t input_sample_rate = BAUD_RATE * 66;
-uint32_t input_center_freq = 434800000;
-
 uint32_t target_sample_rate = BAUD_RATE * 3;
-uint32_t target_center_freq = 435250000;
 uint32_t samples_per_symbol = 3;
 
+// These can be changed by user input
+uint32_t input_center_freq = 434800000;
 uint32_t low_pass_cutoff = 26000;
 uint32_t low_pass_transition = 5000;
-
 int32_t power_squelch_level = -45;
+uint8_t channel_count = 21;
 
-// Source* make_source_block(gr::top_block_sptr tb) {
-//   return new Source(
-//     435050000,
-//     SAMPLE_RATE,
-//     ""
-//   );
-// }
+// @TODO - remove
+uint32_t target_center_freq = 435250000;
 
-gr::basic_block_sptr make_file_source(gr::top_block_sptr tb) {
+gr::block_sptr make_file_source(gr::top_block_sptr tb) {
   gr::blocks::file_source::sptr file = gr::blocks::file_source::make(
     sizeof(gr_complex),
     "/Users/william/output_test_file.data"
   );
 
-  gr::blocks::throttle::sptr throttle = gr::blocks::throttle::make(
-    sizeof(gr_complex),
-    input_sample_rate
-  );
-  tb->connect(file, 0, throttle, 0);
+  // gr::blocks::throttle::sptr throttle = gr::blocks::throttle::make(
+  //   sizeof(gr_complex),
+  //   input_sample_rate
+  // );
+  // tb->connect(file, 0, throttle, 0);
+  // blocks.push_back(throttle);
 
-  return throttle->to_basic_block();
+  return file;
 }
 
 gr::digital::binary_slicer_fb::sptr make_gfsk_demod(gr::top_block_sptr tb, gr::analog::pwr_squelch_cc::sptr source) {
@@ -102,10 +103,59 @@ gr::digital::binary_slicer_fb::sptr make_gfsk_demod(gr::top_block_sptr tb, gr::a
   tb->connect(fmdemod, 0, clock_recovery, 0);
   tb->connect(clock_recovery, 0, slicer, 0);
 
+  blocks.push_back(fmdemod);
+  blocks.push_back(clock_recovery);
+  blocks.push_back(slicer);
+
   return slicer;
 }
 
-bool running = true;
+gr::block_sptr make_channel(uint16_t channel_num, uint32_t channel_freq, std::string source_type, gr::top_block_sptr tb) {
+  gr::block_sptr input;
+
+  // Shift the frequency to the target channel
+  static std::vector<float> low_pass_taps = gr::filter::firdes::low_pass(1.0, input_sample_rate, low_pass_cutoff, low_pass_transition);
+  if (channel_freq != input_center_freq) {
+    gr::filter::freq_xlating_fir_filter_ccf::sptr freq_shift = gr::filter::freq_xlating_fir_filter_ccf::make(
+      (int)(input_sample_rate / target_sample_rate),
+      low_pass_taps,
+      // 2 * M_PI * ((double)(input_center_freq) - channel_freq) / (double)(input_sample_rate),
+      channel_freq - input_center_freq,
+      input_sample_rate
+    );
+    blocks.push_back(freq_shift);
+
+    input = freq_shift;
+  } else {
+    // Decimate and low pass filter
+    gr::filter::fir_filter_ccf::sptr decimating_low_pass_filter = gr::filter::fir_filter_ccf::make(
+      (int)(input_sample_rate / target_sample_rate),
+      low_pass_taps
+    );
+    blocks.push_back(decimating_low_pass_filter);
+
+    input = decimating_low_pass_filter;
+  }
+
+  // Squelch
+  gr::analog::pwr_squelch_cc::sptr power_squelch = gr::analog::pwr_squelch_cc::make(power_squelch_level, 0.5);
+  blocks.push_back(power_squelch);
+  tb->connect(input, 0, power_squelch, 0);
+
+  // GFSK demod
+  gr::digital::binary_slicer_fb::sptr gfsk_demod = make_gfsk_demod(tb, power_squelch);
+
+  // Decode
+  gr::AltusDecoder::Decoder::sptr altus_decode = gr::AltusDecoder::Decoder::make(
+    source_type,
+    channel_freq,
+    channel_num
+  );
+  blocks.push_back(altus_decode);
+  tb->connect(gfsk_demod, 0, altus_decode, 0);
+
+  return input;
+}
 
 void signal_handler(int signal) {
   if (signal == SIGINT) {
@@ -123,7 +173,9 @@ int main(int argc, char **argv) {
     ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
     ("low_pass_cutoff", po::value<uint32_t>(), "Low pass filter cutoff frequency")
     ("low_pass_transition", po::value<uint32_t>(), "Low pass filter transition width")
-    ("squelch", po::value<int32_t>(), "Squelch level for power squelch");
+    ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
+    ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
+    ("channels,c", po::value<uint8_t>(), "Number of channels around the center frequency");
 
   po::variables_map vm;
   po::store(parse_command_line(argc, argv, desc), vm);
@@ -153,6 +205,9 @@ int main(int argc, char **argv) {
   if (vm.count("squelch")) {
     power_squelch_level = vm["squelch"].as<int32_t>();
   }
+  if (vm.count("channels")) {
+    channel_count = vm["channels"].as<uint8_t>();
+  }
 
   // Log the settings
   std::cout << "Current settings:\n"
@@ -160,36 +215,34 @@ int main(int argc, char **argv) {
     << " - Low Pass Cutoff: " << low_pass_cutoff << "\n"
     << " - Low Pass Transition: " << low_pass_transition << "\n"
     << " - Squelch: " << power_squelch_level << "\n\n";
-  return 0;
 
   tb = gr::make_top_block("Altus");
 
-  gr::basic_block_sptr file_source = make_file_source(tb);
+  gr::block_sptr source;
+  std::string source_type;
+  if (vm.count("file")) {
+    source = make_file_source(tb);
+    source_type = "file";
+  }
 
-  // Shift the frequency to the target channel
-  gr::blocks::rotator_cc::sptr freq_shift = gr::blocks::rotator_cc::make(
-    2 * M_PI * ((double)(input_center_freq) - target_center_freq) / (double)(input_sample_rate)
-  );
-  tb->connect(file_source, 0, freq_shift, 0);
+  // // Determine the range we want to cover
+  // uint32_t channel_freq;
+  // if (channel_count % 2 == 0) {
+  //   channel_freq = input_center_freq - (channel_count / 2) * ALTUS_CHANNEL_WIDTH;
+  // } else {
+  //   channel_freq = input_center_freq - ((channel_count - 1) / 2) * ALTUS_CHANNEL_WIDTH - ALTUS_CHANNEL_WIDTH / 2;
+  // }
 
-  // Decimate and low pass filter
-  static std::vector<float> low_pass_taps = gr::filter::firdes::low_pass(1.0, input_sample_rate, low_pass_cutoff, low_pass_transition);
-  gr::filter::fir_filter_ccf::sptr decimating_low_pass_filter = gr::filter::fir_filter_ccf::make(
-    (int)(input_sample_rate / target_sample_rate),
-    low_pass_taps
-  );
-  tb->connect(freq_shift, 0, decimating_low_pass_filter, 0);
+  // // Make channels for each channel we want to monitor
+  // for (uint8_t channel_num = 0; channel_num < channel_count; channel_num++) {
+  //   gr::basic_block_sptr channel_input = make_channel(channel_num, channel_freq, source_type, tb);
+  //   tb->connect(source, 0, channel_input, 0);
+  //   std::cout << "Channel " + std::to_string(channel_num) + ": " + std::to_string(channel_freq) + "\n";
 
-  // Squelch
-  gr::analog::pwr_squelch_cc::sptr power_squelch = gr::analog::pwr_squelch_cc::make(-45, 0.5);
-  tb->connect(decimating_low_pass_filter, 0, power_squelch, 0);
-
-  // GFSK demod
-  gr::digital::binary_slicer_fb::sptr gfsk_demod = make_gfsk_demod(tb, power_squelch);
-
-  // Decode
-  gr::AltusDecoder::Decoder::sptr altus_decode = gr::AltusDecoder::Decoder::make();
-  tb->connect(gfsk_demod, 0, altus_decode, 0);
+  //   channel_freq += ALTUS_CHANNEL_WIDTH;
+  // }
+  gr::block_sptr channel_input = make_channel(5, target_center_freq, source_type, tb);
+  tb->connect(source, 0, channel_input, 0);
 
   logger.warn("Starting the top block");
   tb->start();
@@ -197,4 +250,19 @@ int main(int argc, char **argv) {
   std::signal(SIGINT, &signal_handler);
   logger.warn("Press Ctrl + C to exit");
   tb->wait();
+
+  std::cout << "\nTotal Work Time\n";
+  for (gr::block_sptr block : blocks) {
+    std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(0) << block->pc_work_time_total() << "\n";
+  }
+
+  std::cout << "\nAvg Work Time\n";
+  for (gr::block_sptr block : blocks) {
+    std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(2)<< block->pc_work_time_avg() << "\n";
+  }
+
+  std::cout << "\nCustom Avg\n";
+  for (gr::block_sptr block : blocks) {
+    std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(2)<< (block->pc_work_time_total() / block->nitems_read(0)) << "\n";
+  }
 }

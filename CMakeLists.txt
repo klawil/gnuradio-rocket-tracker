@@ -141,6 +141,8 @@ endif()
 add_definitions(-DGNURADIO_VERSION=${GNURADIO_VERSION})
 message(STATUS "Gnuradio Version is: " ${Gnuradio_VERSION})
 
+add_definitions(-DENABLE_PERFORMANCE_COUNTERS=True)
+
 ########################################################################
 # Setup the include and linker paths
 ########################################################################

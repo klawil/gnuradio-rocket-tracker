@@ -1,6 +1,9 @@
 #include "constants.h"
 #include "altus_decoder_impl.h"
 #include <gnuradio/io_signature.h>
+#include <format>
+#include <iostream>
+#include <string>
 
 const uint16_t packet_length_in_bits = BYTES_PER_MESSAGE * 8;
 
@@ -19,13 +22,25 @@ namespace gr {
   namespace AltusDecoder {
     using input_type = uint8_t;
     
-    Decoder::sptr Decoder::make() {
-      return gnuradio::make_block_sptr<Decoder_impl>();
+    Decoder::sptr Decoder::make(
+      std::string source_type_input,
+      uint32_t channel_freq_input,
+      uint16_t channel_num_input
+    ) {
+      return gnuradio::get_initial_sptr(new Decoder_impl(
+        source_type_input,
+        channel_freq_input,
+        channel_num_input
+      ));
     }
 
     // Private constructor
-    Decoder_impl::Decoder_impl() : gr::block(
-      "AltusDecoder",
+    Decoder_impl::Decoder_impl(
+      std::string source_type_input,
+      uint32_t channel_freq_input,
+      uint16_t channel_num_input
+    ) : gr::block(
+      "AltusDecoder CH " + std::to_string(channel_num_input),
       gr::io_signature::make(
         1,
         1,
@@ -37,6 +52,9 @@ namespace gr {
         0
       )
     ) {
+      source_type = source_type_input;
+      channel_freq = channel_freq_input;
+      channel_num = channel_num_input;
       reset();
     }
 
@@ -46,7 +64,11 @@ namespace gr {
     // Reset function
     void Decoder_impl::reset() {
       // Check for a reset occurring when sync word has been found
-      if (found_sync_word && buffers_filled_for_packet * 2 < BYTES_PER_MESSAGE) {
+      if (
+        source_type == "file" &&
+        found_sync_word &&
+        buffers_filled_for_packet * 2 < BYTES_PER_MESSAGE
+      ) {
         d_logger->warn("Reset in the middle of a packet");
       }
 
@@ -232,10 +254,12 @@ namespace gr {
       }
       
       // Check CRC match
-      if (computed_crc == received_crc) {
-        d_logger->warn("CRC matched (msg type: {}, received: {}, computed: {})", message[4], received_crc, computed_crc);
-      } else {
-        d_logger->warn("CRC failed (msg type: {}, received: {}, computed: {})", message[4], received_crc, computed_crc);
+      if (source_type == "file") {
+        if (computed_crc == received_crc) {
+          d_logger->warn("CRC matched (msg type: {})", message[4]);
+        } else {
+          d_logger->warn("CRC failed (msg type: {})", message[4]);
+        }
       }
 
       // Send out message (log for now)
@@ -263,7 +287,6 @@ namespace gr {
           last_16_bits = (last_16_bits << 1) | (in[index]);
           if (last_16_bits == SYNC_WORD) {
             found_sync_word = true;
-            d_logger->warn("Found sync word");
           }
         } else {
           // Cache some bits to be passed to the next function
@@ -282,7 +305,6 @@ namespace gr {
 
           // Once all the bytes for the packet are parsed, reset the state
           if (buffers_filled_for_packet * 2 >= BYTES_PER_MESSAGE) {
-            d_logger->warn("Parsed all bytes for packet");
             parse_full_packet();
             reset();
           }

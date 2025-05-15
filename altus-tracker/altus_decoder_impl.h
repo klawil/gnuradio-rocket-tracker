@@ -1,6 +1,8 @@
 #ifndef INCLUDED_ALTUS_DECORDER_IMPL_H
 #define INCLUDED_ALTUS_DECORDER_IMPL_H
 
+#include <string>
+
 #include "altus_decoder.h"
 #include "constants.h"
 
@@ -8,6 +10,11 @@ namespace gr {
   namespace AltusDecoder {
     class Decoder_impl : public Decoder {
       private:
+        // Channel information
+        std::string source_type;
+        uint32_t channel_freq;
+        uint16_t channel_num;
+        
         // Sync word detection
         uint16_t last_16_bits;
         bool found_sync_word;  
@@ -43,7 +50,11 @@ namespace gr {
         void add_byte_to_crc(uint8_t byte, uint8_t idx);
 
       public:
-        Decoder_impl();
+        Decoder_impl(
+          std::string source_type_input,
+          uint32_t channel_freq_input,
+          uint16_t channel_num_input
+        );
         ~Decoder_impl();
 
         int general_work(

@@ -21,6 +21,14 @@ static const uint8_t fec_encode_table[NUM_V_STATE * 2] = {
 namespace gr {
   namespace AltusDecoder {
     using input_type = uint8_t;
+
+    uint32_t Decoder::get_parsed() {
+      return 5100;
+    }
+
+    uint32_t Decoder::get_passed() {
+      return 5000;
+    }
     
     Decoder::sptr Decoder::make(
       std::string source_type_input,
@@ -63,14 +71,14 @@ namespace gr {
 
     // Reset function
     void Decoder_impl::reset() {
-      // Check for a reset occurring when sync word has been found
-      if (
-        source_type == "file" &&
-        found_sync_word &&
-        buffers_filled_for_packet * 2 < BYTES_PER_MESSAGE
-      ) {
-        d_logger->warn("Reset in the middle of a packet");
-      }
+      // // Check for a reset occurring when sync word has been found
+      // if (
+      //   source_type == "file" &&
+      //   found_sync_word &&
+      //   buffers_filled_for_packet * 2 < BYTES_PER_MESSAGE
+      // ) {
+      //   d_logger->warn("Reset in the middle of a packet");
+      // }
 
       // Reset the variables used when looking for the sync word
       last_16_bits = 0;
@@ -255,15 +263,25 @@ namespace gr {
       
       // Check CRC match
       if (source_type == "file") {
+        _total++;
         if (computed_crc == received_crc) {
-          d_logger->warn("CRC matched (msg type: {})", message[4]);
+          _passed++;
+          d_logger->warn("CRC matched (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
         } else {
-          d_logger->warn("CRC failed (msg type: {})", message[4]);
+          d_logger->warn("CRC failed (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
         }
       }
 
       // Send out message (log for now)
       // @TODO
+    }
+
+    uint32_t Decoder_impl::get_parsed() {
+      return _total;
+    }
+
+    uint32_t Decoder_impl::get_passed() {
+      return _passed;
     }
 
     // Work function

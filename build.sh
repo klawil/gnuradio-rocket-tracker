@@ -10,6 +10,16 @@ make -j
 echo ""
 echo "*************"
 echo ""
-./altus-tracker -h
-./altus-tracker -v
-./altus-tracker --file=test
+# ./altus-tracker -h
+# ./altus-tracker -v
+time ./altus-tracker --file=test
+# time ./altus-tracker --file=test
+# time ./altus-tracker --file=test
+# time ./altus-tracker --file=test
+# time ./altus-tracker --file=test
+
+# time ./altus-tracker --custom --file=test
+# time ./altus-tracker --custom --file=test
+# time ./altus-tracker --custom --file=test
+# time ./altus-tracker --custom --file=test
+# time ./altus-tracker --custom --file=test

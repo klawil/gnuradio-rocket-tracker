@@ -18,6 +18,7 @@
 
 #include <gnuradio/blocks/null_sink.h>
 
+#include <iomanip>
 #include <iostream>
 #include <boost/program_options.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
@@ -26,10 +27,14 @@
 #include <math.h>
 #include <csignal>
 
+#include <ranges>
+
 #include <vector>
 
 #include "constants.h"
 #include "altus_decoder.h"
+#include "altus_decoder_impl.h"
+#include "freq_shift.h"
 // #include "source.h"
 
 namespace po = boost::program_options;
@@ -37,8 +42,6 @@ namespace po = boost::program_options;
 gr::logger logger("altus-tracker");
 gr::top_block_sptr tb;
 bool running = true;
-
-std::vector<gr::block_sptr> blocks;
 
 // These stay constant
 uint32_t input_sample_rate = BAUD_RATE * 66;
@@ -49,11 +52,16 @@ uint32_t samples_per_symbol = 3;
 uint32_t input_center_freq = 434800000;
 uint32_t low_pass_cutoff = 26000;
 uint32_t low_pass_transition = 5000;
-int32_t power_squelch_level = -45;
+int32_t power_squelch_level = -25;
 uint8_t channel_count = 21;
 
 // @TODO - remove
 uint32_t target_center_freq = 435250000;
+bool use_custom_block = false;
+std::vector<gr::block_sptr> blocks;
+std::vector<gr::block_sptr> shift_blocks;
+std::vector<gr::block_sptr> squelch_blocks;
+std::vector<gr::AltusDecoder::Decoder::sptr> parser_blocks;
 
 gr::block_sptr make_file_source(gr::top_block_sptr tb) {
   gr::blocks::file_source::sptr file = gr::blocks::file_source::make(
@@ -116,31 +124,54 @@ gr::block_sptr make_channel(uint16_t channel_num, uint32_t channel_freq, std::st
   // Shift the frequency to the target channel
   static std::vector<float> low_pass_taps = gr::filter::firdes::low_pass(1.0, input_sample_rate, low_pass_cutoff, low_pass_transition);
   if (channel_freq != input_center_freq) {
-    gr::filter::freq_xlating_fir_filter_ccf::sptr freq_shift = gr::filter::freq_xlating_fir_filter_ccf::make(
-      (int)(input_sample_rate / target_sample_rate),
-      low_pass_taps,
-      // 2 * M_PI * ((double)(input_center_freq) - channel_freq) / (double)(input_sample_rate),
-      channel_freq - input_center_freq,
-      input_sample_rate
-    );
-    blocks.push_back(freq_shift);
+    if (!use_custom_block) {
+      gr::filter::freq_xlating_fir_filter_ccf::sptr freq_shift = gr::filter::freq_xlating_fir_filter_ccf::make(
+        (int)(input_sample_rate / target_sample_rate),
+        low_pass_taps,
+        channel_freq - input_center_freq,
+        input_sample_rate
+      );
 
-    input = freq_shift;
-  } else {
-    // Decimate and low pass filter
-    gr::filter::fir_filter_ccf::sptr decimating_low_pass_filter = gr::filter::fir_filter_ccf::make(
+      shift_blocks.push_back(freq_shift);
+      blocks.push_back(freq_shift);
+      input = freq_shift;
+    } else {
+      gr::FreqShift::DoShift::sptr freq_shift = gr::FreqShift::DoShift::make(
+        (int)input_center_freq - channel_freq,
+        input_sample_rate
+      );
+
+      shift_blocks.push_back(freq_shift);
+      blocks.push_back(freq_shift);
+      input = freq_shift;
+    }
+  }
+
+  // Decimate and low pass filter
+  gr::filter::fir_filter_ccf::sptr decimating_low_pass_filter;
+  if (use_custom_block) {
+    decimating_low_pass_filter = gr::filter::fir_filter_ccf::make(
       (int)(input_sample_rate / target_sample_rate),
       low_pass_taps
     );
+    shift_blocks.push_back(decimating_low_pass_filter);
     blocks.push_back(decimating_low_pass_filter);
-
-    input = decimating_low_pass_filter;
+    if (channel_freq == input_center_freq) {
+      input = decimating_low_pass_filter;
+    } else {
+      tb->connect(input, 0, decimating_low_pass_filter, 0);
+    }
   }
 
   // Squelch
-  gr::analog::pwr_squelch_cc::sptr power_squelch = gr::analog::pwr_squelch_cc::make(power_squelch_level, 0.5);
+  gr::analog::pwr_squelch_cc::sptr power_squelch = gr::analog::pwr_squelch_cc::make(power_squelch_level, 0.5, 0, true);
   blocks.push_back(power_squelch);
-  tb->connect(input, 0, power_squelch, 0);
+  squelch_blocks.push_back(power_squelch);
+  if (use_custom_block) {
+    tb->connect(decimating_low_pass_filter, 0, power_squelch, 0);
+  } else {
+    tb->connect(input, 0, power_squelch, 0);
+  }
 
   // GFSK demod
   gr::digital::binary_slicer_fb::sptr gfsk_demod = make_gfsk_demod(tb, power_squelch);
@@ -152,6 +183,7 @@ gr::block_sptr make_channel(uint16_t channel_num, uint32_t channel_freq, std::st
     channel_num
   );
   blocks.push_back(altus_decode);
+  parser_blocks.push_back(altus_decode);
   tb->connect(gfsk_demod, 0, altus_decode, 0);
 
   return input;
@@ -165,7 +197,23 @@ void signal_handler(int signal) {
   }
 }
 
+std::string replaceAll(
+    std::string str,
+    const std::string& from,
+    const std::string& to)
+{
+    auto&& pos = str.find(from, size_t{});
+    while (pos != std::string::npos)
+    {
+        str.replace(pos, from.length(), to);
+        // easy to forget to add to.length()
+        pos = str.find(from, pos + to.length());
+    }
+    return str;
+}
+
 int main(int argc, char **argv) {
+  low_pass_cutoff = 21000;
   po::options_description desc("Options");
   desc.add_options()
     ("help,h", "Help screen")
@@ -175,7 +223,8 @@ int main(int argc, char **argv) {
     ("low_pass_transition", po::value<uint32_t>(), "Low pass filter transition width")
     ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
-    ("channels,c", po::value<uint8_t>(), "Number of channels around the center frequency");
+    ("channels", po::value<uint8_t>(), "Number of channels around the center frequency")
+    ("custom", "Custom Block");
 
   po::variables_map vm;
   po::store(parse_command_line(argc, argv, desc), vm);
@@ -190,6 +239,10 @@ int main(int argc, char **argv) {
     std::cout << "Usage: trunk-recorder [options]\n";
     std::cout << desc;
     exit(0);
+  }
+
+  if (vm.count("custom")) {
+    use_custom_block = true;
   }
 
   // Parse the input configurations out
@@ -209,12 +262,12 @@ int main(int argc, char **argv) {
     channel_count = vm["channels"].as<uint8_t>();
   }
 
-  // Log the settings
-  std::cout << "Current settings:\n"
-    << " - Center Freq: " << input_center_freq << "\n"
-    << " - Low Pass Cutoff: " << low_pass_cutoff << "\n"
-    << " - Low Pass Transition: " << low_pass_transition << "\n"
-    << " - Squelch: " << power_squelch_level << "\n\n";
+  // // Log the settings
+  // std::cout << "Current settings:\n"
+  //   << " - Center Freq: " << input_center_freq << "\n"
+  //   << " - Low Pass Cutoff: " << low_pass_cutoff << "\n"
+  //   << " - Low Pass Transition: " << low_pass_transition << "\n"
+  //   << " - Squelch: " << power_squelch_level << "\n\n";
 
   tb = gr::make_top_block("Altus");
 
@@ -241,28 +294,85 @@ int main(int argc, char **argv) {
 
   //   channel_freq += ALTUS_CHANNEL_WIDTH;
   // }
-  gr::block_sptr channel_input = make_channel(5, target_center_freq, source_type, tb);
-  tb->connect(source, 0, channel_input, 0);
+  // gr::block_sptr channel_input = make_channel(0, input_center_freq + 550000, source_type, tb);
+  // tb->connect(source, 0, channel_input, 0);
 
-  logger.warn("Starting the top block");
+  gr::block_sptr channel_input_2 = make_channel(1, input_center_freq + 450000, source_type, tb);
+  tb->connect(source, 0, channel_input_2, 0);
+
+  // gr::block_sptr channel_input_3 = make_channel(2, input_center_freq + 350000, source_type, tb);
+  // tb->connect(source, 0, channel_input_3, 0);
+
+  // gr::block_sptr channel_input_4 = make_channel(3, input_center_freq + 250000, source_type, tb);
+  // tb->connect(source, 0, channel_input_4, 0);
+
+  // gr::block_sptr channel_input_5 = make_channel(4, input_center_freq + 150000, source_type, tb);
+  // tb->connect(source, 0, channel_input_5, 0);
+
+  // gr::block_sptr channel_input_6 = make_channel(5, input_center_freq + 50000, source_type, tb);
+  // tb->connect(source, 0, channel_input_6, 0);
+
+  // gr::block_sptr channel_input_7 = make_channel(6, input_center_freq - 50000, source_type, tb);
+  // tb->connect(source, 0, channel_input_7, 0);
+
+  // gr::block_sptr channel_input_8 = make_channel(7, input_center_freq - 150000, source_type, tb);
+  // tb->connect(source, 0, channel_input_8, 0);
+
+  // gr::block_sptr channel_input_9 = make_channel(8, input_center_freq - 250000, source_type, tb);
+  // tb->connect(source, 0, channel_input_9, 0);
+
+  // gr::block_sptr channel_input_10 = make_channel(9, input_center_freq - 350000, source_type, tb);
+  // tb->connect(source, 0, channel_input_10, 0);
+
+  // logger.warn("Starting the top block");
   tb->start();
 
   std::signal(SIGINT, &signal_handler);
-  logger.warn("Press Ctrl + C to exit");
+  // logger.warn("Press Ctrl + C to exit");
   tb->wait();
 
-  std::cout << "\nTotal Work Time\n";
-  for (gr::block_sptr block : blocks) {
-    std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(0) << block->pc_work_time_total() << "\n";
+  // std::cout << "\nTotal Work Time\n";
+  // for (gr::block_sptr block : blocks) {
+  //   std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(0) << block->pc_work_time_total() << "\n";
+  // }
+
+  // std::cout << "\nAvg Work Time\n";
+  // for (gr::block_sptr block : blocks) {
+  //   std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(2)<< block->pc_work_time_avg() << "\n";
+  // }
+
+  std::cout << "\n";
+  if (use_custom_block) {
+    std::cout << "Custom Block\n";
+  } else {
+    std::cout << "Internal Block\n";
   }
 
-  std::cout << "\nAvg Work Time\n";
-  for (gr::block_sptr block : blocks) {
-    std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(2)<< block->pc_work_time_avg() << "\n";
+  // std::cout << "\nCustom Avg\n";
+  float total_work_time = 0;
+  float all_work_time = 0;
+  float total_squelch_samples = 0;
+  for (gr::block_sptr block : shift_blocks) {
+    total_work_time += block->pc_work_time_total();
+    // std::cout << replaceAll(block->name(), ",", "") << "," << std::fixed << std::setprecision(0) << block->pc_work_time_total() << ",";
+    // std::cout << std::fixed << std::setprecision(0) << block->nitems_read(0) << "\n";
+    // std::cout << std::fixed << std::setprecision(2) << block->nitems_read(0) << "\n";
   }
-
-  std::cout << "\nCustom Avg\n";
   for (gr::block_sptr block : blocks) {
-    std::cout << "Block " << block->name() << ": " << std::fixed << std::setprecision(2)<< (block->pc_work_time_total() / block->nitems_read(0)) << "\n";
+    all_work_time += block->pc_work_time_total();
+    // std::cout << replaceAll(block->name(), ",", "") << "," << std::fixed << std::setprecision(0) << block->pc_work_time_total() << ",";
+    // std::cout << std::fixed << std::setprecision(0) << block->nitems_read(0) << "\n";
+    // std::cout << std::fixed << std::setprecision(2) << block->nitems_read(0) << "\n";
   }
+  for (gr::block_sptr block : squelch_blocks) {
+    total_squelch_samples += block->nitems_written(0);
+    // std::cout << "Block input samples " << block->name() << ": " << std::fixed << block->nitems_read(0) << " In, "
+    //   << std::fixed << block->nitems_written(0) << " Out\n";
+  }
+  for (gr::AltusDecoder::Decoder::sptr block : parser_blocks) {
+    std::cout << "Passed " << block.get()->get_passed() << " of " << block.get()->get_parsed() << "\n";
+  }
+  std::cout << "All Work Time: " << std::fixed << std::setprecision(0) << all_work_time << "\n";
+  std::cout << "Shift Work Time: " << std::fixed << std::setprecision(0) << total_work_time << "\n";
+  std::cout << "Total Squelch Samples: " << std::fixed << std::setprecision(0) << total_squelch_samples << "\n";
 }

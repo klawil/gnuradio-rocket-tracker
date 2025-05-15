@@ -21,6 +21,8 @@ namespace gr {
           uint32_t channel_freq_input,
           uint16_t channel_num_input
         );
+        uint32_t get_passed();
+        uint32_t get_parsed();
     };
   }
 }

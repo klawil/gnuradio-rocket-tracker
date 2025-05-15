@@ -39,6 +39,8 @@ namespace gr {
         // CRC
         uint16_t computed_crc;
         uint16_t received_crc;
+        uint32_t _passed;
+        uint32_t _total;
 
         void reset();
         void parse_packet_bytes(); // Deinterleave and FEC decode
@@ -63,6 +65,9 @@ namespace gr {
           gr_vector_const_void_star& input_items,
           gr_vector_void_star& output_items
         );
+        uint32_t get_passed();
+        uint32_t get_parsed();
+        typedef std::shared_ptr<Decoder_impl> sptr2;
     };
   }
 }

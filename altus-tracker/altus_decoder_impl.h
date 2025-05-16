@@ -67,7 +67,6 @@ namespace gr {
         );
         uint32_t get_passed();
         uint32_t get_parsed();
-        typedef std::shared_ptr<Decoder_impl> sptr2;
     };
   }
 }

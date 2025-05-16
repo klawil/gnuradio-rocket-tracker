@@ -1,5 +1,5 @@
 #include "constants.h"
-#include "altus_decoder_impl.h"
+#include "altus_decoder.h"
 #include <gnuradio/io_signature.h>
 #include <format>
 #include <iostream>
@@ -21,21 +21,13 @@ static const uint8_t fec_encode_table[NUM_V_STATE * 2] = {
 namespace gr {
   namespace AltusDecoder {
     using input_type = uint8_t;
-
-    uint32_t Decoder::get_parsed() {
-      return 5100;
-    }
-
-    uint32_t Decoder::get_passed() {
-      return 5000;
-    }
     
     Decoder::sptr Decoder::make(
       std::string source_type_input,
       uint32_t channel_freq_input,
       uint16_t channel_num_input
     ) {
-      return gnuradio::get_initial_sptr(new Decoder_impl(
+      return gnuradio::get_initial_sptr(new Decoder(
         source_type_input,
         channel_freq_input,
         channel_num_input
@@ -43,7 +35,7 @@ namespace gr {
     }
 
     // Private constructor
-    Decoder_impl::Decoder_impl(
+    Decoder::Decoder(
       std::string source_type_input,
       uint32_t channel_freq_input,
       uint16_t channel_num_input
@@ -67,10 +59,10 @@ namespace gr {
     }
 
     // Virtual destructor
-    Decoder_impl::~Decoder_impl() {}
+    Decoder::~Decoder() {}
 
     // Reset function
-    void Decoder_impl::reset() {
+    void Decoder::reset() {
       // // Check for a reset occurring when sync word has been found
       // if (
       //   source_type == "file" &&
@@ -107,7 +99,7 @@ namespace gr {
       computed_crc = 0xFFFF;
     }
 
-    uint32_t Decoder_impl::deinterleave(uint32_t base) {
+    uint32_t Decoder::deinterleave(uint32_t base) {
       uint32_t return_data = 0;
       for (uint8_t bit = 0; bit < 4 * 4; bit++) {
         uint8_t bit_shift = (bit & 0x3) << 3;
@@ -119,7 +111,7 @@ namespace gr {
       return return_data;
     }
 
-    void Decoder_impl::get_viterbi_bytes() {
+    void Decoder::get_viterbi_bytes() {
       // Determine the minimum cost path
       uint8_t min_state = 0;
       uint8_t min_cost = cost[cost_index][0];
@@ -155,7 +147,7 @@ namespace gr {
       }
     }
 
-    void Decoder_impl::viterbi_decode(uint32_t base) {
+    void Decoder::viterbi_decode(uint32_t base) {
       for (uint8_t d = 0; d < BITS_TO_BUFFER; d += 2) {
         uint8_t last_cost_index = cost_index;
         cost_index ^= 1;
@@ -215,7 +207,7 @@ namespace gr {
       }
     }
 
-    void Decoder_impl::parse_packet_bytes() {
+    void Decoder::parse_packet_bytes() {
       // Deinterleave
       uint32_t raw_bytes = deinterleave(bits_buffer);
 
@@ -223,7 +215,7 @@ namespace gr {
       viterbi_decode(raw_bytes);
     }
 
-    uint8_t Decoder_impl::whiten_byte(uint8_t byte) {
+    uint8_t Decoder::whiten_byte(uint8_t byte) {
       uint8_t whitened = byte ^ (whiten & 0xFF);
 
       // Increment the whitening integer
@@ -234,7 +226,7 @@ namespace gr {
       return whitened;
     }
 
-    void Decoder_impl::add_byte_to_crc(uint8_t byte, uint8_t idx) {
+    void Decoder::add_byte_to_crc(uint8_t byte, uint8_t idx) {
       if (idx < 32) {
         // The first 32 bytes are used to compute the CRC
         for (uint8_t i = 0; i < 8; i++) {
@@ -252,7 +244,7 @@ namespace gr {
       // Indexes 34 and 35 are trellis terminators and ignored
     }
 
-    void Decoder_impl::parse_full_packet() {
+    void Decoder::parse_full_packet() {
       for (uint8_t b = 0; b < BYTES_PER_MESSAGE; b++) {
         // Whiten bytes
         message[b] = whiten_byte(message[b]);
@@ -276,16 +268,16 @@ namespace gr {
       // @TODO
     }
 
-    uint32_t Decoder_impl::get_parsed() {
+    uint32_t Decoder::get_parsed() {
       return _total;
     }
 
-    uint32_t Decoder_impl::get_passed() {
+    uint32_t Decoder::get_passed() {
       return _passed;
     }
 
     // Work function
-    int Decoder_impl::general_work(
+    int Decoder::general_work(
       int ninput_items,
       gr_vector_int &unknown,
       gr_vector_const_void_star &input_items,

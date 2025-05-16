@@ -18,7 +18,7 @@ time ./altus-tracker --file=test
 # time ./altus-tracker --file=test
 # time ./altus-tracker --file=test
 
-# time ./altus-tracker --custom --file=test
+time ./altus-tracker --custom --file=test
 # time ./altus-tracker --custom --file=test
 # time ./altus-tracker --custom --file=test
 # time ./altus-tracker --custom --file=test

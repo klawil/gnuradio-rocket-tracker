@@ -1,4 +1,4 @@
-#include "freq_shift_impl.h"
+#include "freq_shift.h"
 
 #include <vector>
 #include <string>
@@ -15,13 +15,13 @@ namespace gr {
       int channel_freq_offset,
       uint32_t sample_rate
     ) {
-      return gnuradio::get_initial_sptr(new DoShift_impl(
+      return gnuradio::get_initial_sptr(new DoShift(
         channel_freq_offset,
         sample_rate
       ));
     }
 
-    DoShift_impl::DoShift_impl(
+    DoShift::DoShift(
       int channel_freq_offset,
       uint32_t sample_rate
     ) : gr::sync_block(
@@ -64,9 +64,9 @@ namespace gr {
       }
     }
     
-    DoShift_impl::~DoShift_impl() {}
+    DoShift::~DoShift() {}
 
-    int DoShift_impl::work(
+    int DoShift::work(
       int noutput_items,
       gr_vector_const_void_star &input_items,
       gr_vector_void_star &output_items

@@ -178,8 +178,8 @@ SET(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wno-narrowing -fvisibility=hidden -fPIC")
 
 list(APPEND altus_tracker_sources
-  altus-tracker/altus_decoder_impl.cc
-  altus-tracker/freq_shift_impl.cc
+  altus-tracker/altus_decoder.cc
+  altus-tracker/freq_shift.cc
 )
 
 # list(APPEND altus_tracker_headers)

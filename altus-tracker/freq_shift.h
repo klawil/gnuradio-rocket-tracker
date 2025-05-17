@@ -1,7 +1,6 @@
 #ifndef INCLUDED_FREQ_SHIFT_H
 #define INCLUDED_FREQ_SHIFT_H
 
-#include <gnuradio/block.h>
 #include <gnuradio/attributes.h>
 #include <gnuradio/sync_block.h>
 #include <string>

@@ -258,9 +258,9 @@ namespace gr {
         _total++;
         if (computed_crc == received_crc) {
           _passed++;
-          d_logger->warn("CRC matched (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
-        } else {
-          d_logger->warn("CRC failed (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
+        //   d_logger->warn("CRC matched (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
+        // } else {
+        //   d_logger->warn("CRC failed (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
         }
       }
 

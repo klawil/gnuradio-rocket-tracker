@@ -243,7 +243,9 @@ namespace gr {
         add_byte_to_crc(message[b], b);
       }
       
-      handle_message(message, computed_crc, received_crc);
+      if (computed_crc == received_crc) {
+        handle_message(message, computed_crc, received_crc);
+      }
     }
 
     // Work function

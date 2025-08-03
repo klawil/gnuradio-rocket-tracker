@@ -71,7 +71,7 @@ void signal_handler(int signal) {
 void message_handler(
   AltusPacket packet
 ) {
-  std::cout << "Packet 2: " << packet.to_string() << std::endl;
+  std::cout << packet.to_string() << std::endl;
 }
 
 int main(int argc, char **argv) {

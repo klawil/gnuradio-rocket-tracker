@@ -13,6 +13,10 @@ class AltusPacket {
     bool crc_match;
     double channel_freq;
 
+    uint16_t serial;
+    uint16_t rockettime;
+    uint8_t type;
+
   public:
     AltusPacket(
       uint8_t new_message[BYTES_PER_MESSAGE],

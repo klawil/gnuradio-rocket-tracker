@@ -23,24 +23,16 @@ namespace gr {
     using input_type = uint8_t;
     
     Decoder::sptr Decoder::make(
-      std::string source_type_input,
-      uint32_t channel_freq_input,
-      uint16_t channel_num_input
+      handle_message_t handle_message
     ) {
-      return gnuradio::get_initial_sptr(new Decoder(
-        source_type_input,
-        channel_freq_input,
-        channel_num_input
-      ));
+      return gnuradio::get_initial_sptr(new Decoder(handle_message));
     }
 
     // Private constructor
     Decoder::Decoder(
-      std::string source_type_input,
-      uint32_t channel_freq_input,
-      uint16_t channel_num_input
+      handle_message_t hm
     ) : gr::block(
-      "AltusDecoder CH " + std::to_string(channel_num_input),
+      "AltusDecoder",
       gr::io_signature::make(
         1,
         1,
@@ -52,9 +44,8 @@ namespace gr {
         0
       )
     ) {
-      source_type = source_type_input;
-      channel_freq = channel_freq_input;
-      channel_num = channel_num_input;
+      handle_message = hm;
+
       reset();
     }
 
@@ -64,16 +55,17 @@ namespace gr {
     // Reset function
     void Decoder::reset() {
       // // Check for a reset occurring when sync word has been found
-      // if (
-      //   source_type == "file" &&
-      //   found_sync_word &&
-      //   buffers_filled_for_packet * 2 < BYTES_PER_MESSAGE
-      // ) {
-      //   d_logger->warn("Reset in the middle of a packet");
-      // }
+      if (
+        // source_type == "file" &&
+        found_sync_word &&
+        buffers_filled_for_packet * 2 < BYTES_PER_MESSAGE
+      ) {
+        d_logger->warn("Reset in the middle of a packet");
+      }
 
       // Reset the variables used when looking for the sync word
       last_16_bits = 0;
+      // last_last_16_bits = 0;
       found_sync_word = false;
 
       // Reset the buffer variables
@@ -254,15 +246,14 @@ namespace gr {
       }
       
       // Check CRC match
-      if (source_type == "file") {
-        _total++;
-        if (computed_crc == received_crc) {
-          _passed++;
-        //   d_logger->warn("CRC matched (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
-        // } else {
-        //   d_logger->warn("CRC failed (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
-        }
+      _total++;
+      if (computed_crc == received_crc) {
+        _passed++;
+        d_logger->warn("CRC matched (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
+      } else {
+        d_logger->warn("CRC failed (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
       }
+      handle_message(message, computed_crc, received_crc);
 
       // Send out message (log for now)
       // @TODO
@@ -294,8 +285,9 @@ namespace gr {
 
         // Look for the sync word
         if (!found_sync_word) {
+          // last_last_16_bits = (last_last_16_bits << 1) | (last_16_bits & 0x1000 >> 3);
           last_16_bits = (last_16_bits << 1) | (in[index]);
-          if (last_16_bits == SYNC_WORD) {
+          if ((last_16_bits & 0xFFFF) == SYNC_WORD) {
             found_sync_word = true;
           }
         } else {

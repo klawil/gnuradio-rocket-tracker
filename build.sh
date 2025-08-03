@@ -7,32 +7,8 @@ mkdir build
 cd build
 cmake ..
 make -j
-# ./altus-tracker -h
-# ./altus-tracker -v
-
-# echo ""
-# echo "*************"
-# echo ""
-# time ./altus-tracker --file=test
-# time ./altus-tracker --file=test
-# time ./altus-tracker --file=test
-# time ./altus-tracker --file=test
-# time ./altus-tracker --file=test
-
-# echo ""
-# echo "*************"
-# echo ""
-# time ./altus-tracker --custom --file=test
-# time ./altus-tracker --custom --file=test
-# time ./altus-tracker --custom --file=test
-# time ./altus-tracker --custom --file=test
-# time ./altus-tracker --custom --file=test
 
 echo ""
 echo "*************"
 echo ""
-time ./altus-tracker --channels --file=test
-# time ./altus-tracker --channels --file=test
-# time ./altus-tracker --channels --file=test
-# time ./altus-tracker --channels --file=test
-# time ./altus-tracker --channels --file=test
+./altus-tracker

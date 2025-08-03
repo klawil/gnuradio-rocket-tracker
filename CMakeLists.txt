@@ -141,7 +141,15 @@ endif()
 add_definitions(-DGNURADIO_VERSION=${GNURADIO_VERSION})
 message(STATUS "Gnuradio Version is: " ${Gnuradio_VERSION})
 
-add_definitions(-DENABLE_PERFORMANCE_COUNTERS=True)
+# add_definitions(-DENABLE_PERFORMANCE_COUNTERS=True)
+
+find_package(SoapySDR "0.7.2" NO_MODULE)
+if(SoapySDR_FOUND)
+	message(STATUS "SoapySDR found, version: ${SoapySDR_VERSION}")
+	# include_directories(${SoapySDR_INCLUDE_DIRS})
+	# list(APPEND SDR_LIBRARIES ${SoapySDR_LIBRARIES})
+	# ADD_DEFINITIONS(-DSOAPYSDR)
+endif()
 
 ########################################################################
 # Setup the include and linker paths
@@ -149,26 +157,20 @@ add_definitions(-DENABLE_PERFORMANCE_COUNTERS=True)
 include_directories(
     ${Boost_INCLUDE_DIRS}
     ${GNURADIO_RUNTIME_INCLUDE_DIRS}
-    # ${GNURADIO_OSMOSDR_INCLUDE_DIRS}
+    # ${GNURADIO_ALL_LIBRARIES}
+    ${GNURADIO_OSMOSDR_INCLUDE_DIRS}
+    # ${SoapySDR_INCLUDE_DIRS}
     ${CMAKE_BINARY_DIR}/lib
     ${CMAKE_BINARY_DIR}/include
-    # ${CMAKE_SOURCE_DIR}/lib/op25_repeater/lib
-    # ${CMAKE_SOURCE_DIR}/lib/op25_repeater/include
-    # ${OPENSSL_INCLUDE_DIR}
-    # ${CURL_INCLUDE_DIR}
     "lib"
 )
-#    ${PROTOBUF_INCLUDE_DIR}
-#    ${GRPC_INCLUDE_DIR}
-#)
 
 link_directories(
     ${Boost_LIBRARY_DIRS}
-    ${GNURADIO_RUNTIME_LIBRARY_DIRS}
-    # ${GROSMOSDR_LIBRARIES_DIRS}
-    # ${GNURADIO_UHD_LIBRARIES_DIRS}
-    # ${UHD_LIBRARIES_DIRS}
-    # ${OPENSSL_ROOT_DIR}/lib
+    # ${GNURADIO_RUNTIME_INCLUDE_DIRS}
+    ${GNURADIO_ALL_LIBRARY_DIRS}
+    # ${SoapySDR_LIBRARY_DIRS}
+    ${GROSMOSDR_LIBRARIES_DIRS}
 )
 
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wno-unused-local-typedef -Wno-deprecated-declarations -Wno-error=deprecated-declarations -g3")
@@ -179,8 +181,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wno-narrowing -fvisibility=hid
 
 list(APPEND altus_tracker_sources
   altus-tracker/altus_decoder.cc
-  altus-tracker/freq_shift.cc
-  altus-tracker/make_channel.cc
+  altus-tracker/altus_channel.cc
 )
 
 # list(APPEND altus_tracker_headers)
@@ -217,9 +218,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/altus-tracker/" # source director
 
 add_executable(altus-tracker altus-tracker/main.cc) # ${trunk_recorder_sources})
 
-# target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${Boost_LIBRARIES} ${GNURADIO_OSMOSDR_LIBRARIES})
-# target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${GNURADIO_OSMOSDR_LIBRARIES})
-target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${Boost_LIBRARIES} ${GNURADIO_OSMOSDR_LIBRARIES})
 
 message(STATUS "All libraries:" ${GNURADIO_ALL_LIBRARIES})
 if(NOT Gnuradio_VERSION VERSION_LESS "3.8")

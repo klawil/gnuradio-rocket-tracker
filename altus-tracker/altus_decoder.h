@@ -1,9 +1,23 @@
 #ifndef INCLUDED_ALTUS_DECODER_H
 #define INCLUDED_ALTUS_DECODER_H
 
-#include <gnuradio/block.h>
 #include <gnuradio/attributes.h>
+#include <gnuradio/block.h>
+
+#include <functional>
+#include <math.h>
 #include <string>
+#include <vector>
+
+#include "constants.h"
+
+typedef uint8_t message[BYTES_PER_MESSAGE];
+
+typedef std::function<void (
+  message,
+  uint16_t,
+  uint16_t
+)> handle_message_t;
 
 #ifdef gnuradio_Altus_Decoder_EXPORTS
 #define ALTUS_DECODER_API __GR_ATTR_EXPORT
@@ -55,21 +69,19 @@ namespace gr {
         void get_viterbi_bytes(); // Retrieves bytes of data from the viterbi state
         uint8_t whiten_byte(uint8_t byte);
         void add_byte_to_crc(uint8_t byte, uint8_t idx);
+  
+        handle_message_t handle_message;
 
       public:
         typedef std::shared_ptr<Decoder> sptr;
         static sptr make(
-          std::string source_type_input,
-          uint32_t channel_freq_input,
-          uint16_t channel_num_input
+          handle_message_t handle_message
         );
         uint32_t get_passed();
         uint32_t get_parsed();
 
         Decoder(
-          std::string source_type_input,
-          uint32_t channel_freq_input,
-          uint16_t channel_num_input
+          handle_message_t handle_message
         );
         ~Decoder();
 

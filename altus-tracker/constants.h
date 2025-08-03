@@ -1,9 +1,8 @@
 #ifndef CONSTANTS_H
 #define CONSTANTS_H
 
+// Symbol rate for Altus products
 #define BAUD_RATE 38400
-#define SAMPLE_RATE (BAUD_RATE * 66)
-#define DECIMATED_SAMPLE_RATE (BAUD_RATE * 3)
 
 // Sync word for Altus products
 #define SYNC_WORD 0xd391
@@ -20,9 +19,5 @@
 
 // Number of bytes in an Altus message (32 bytes of data, 2 bytes checksum, 2 bytes terminator)
 #define BYTES_PER_MESSAGE 36
-
-// How far apart to listen for channels
-// #define ALTUS_CHANNEL_WIDTH 50000
-#define ALTUS_CHANNEL_WIDTH 100000
 
 #endif

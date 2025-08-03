@@ -20,11 +20,13 @@
 #include <gnuradio/message.h>
 #include <gnuradio/msg_queue.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
 #include "constants.h"
 #include "altus_decoder.h"
+#include "altus_packet.h"
 
 #ifdef gnuradio_Altus_Decoder_EXPORTS
 #define ALTUS_DECODER_API __GR_ATTR_EXPORT
@@ -36,6 +38,8 @@ class AltusChannel;
 
 typedef std::shared_ptr<AltusChannel> altus_channel_sptr;
 
+typedef std::function<void (AltusPacket)> altus_packet_handler;
+
 /**
  * @brief Generate an altus channel block
  * 
@@ -46,7 +50,7 @@ typedef std::shared_ptr<AltusChannel> altus_channel_sptr;
  * @return altus_channel_sptr The Altus Channel block
  */
 altus_channel_sptr make_altus_channel(
-  handle_message_t handle_message_cb,
+  altus_packet_handler handle_message_cb,
   double channel_freq,
   double center_freq,
   double input_sample_rate
@@ -63,7 +67,7 @@ class AltusChannel : public gr::hier_block2 {
    * @return altus_channel_sptr The Altus Channel block
    */
   friend altus_channel_sptr make_altus_channel(
-    handle_message_t handle_message_cb,
+    altus_packet_handler handle_message_cb,
     double channel_freq,
     double center_freq,
     double input_sample_rate
@@ -75,7 +79,7 @@ class AltusChannel : public gr::hier_block2 {
     double center_freq;
     double input_sample_rate;
 
-    handle_message_t handle_message_cb;
+    altus_packet_handler handle_message_cb;
 
     // Altus channel constants
     const uint8_t samples_per_symbol = 5;
@@ -109,7 +113,7 @@ class AltusChannel : public gr::hier_block2 {
      * @param s The receiver sample rate
      */
     AltusChannel(
-      handle_message_t handle_message_cb,
+      altus_packet_handler handle_message_cb,
       double channel_freq,
       double center_freq,
       double input_sample_rate

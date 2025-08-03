@@ -7,7 +7,7 @@
 #include <boost/log/trivial.hpp>
 
 altus_channel_sptr make_altus_channel(
-  handle_message_t handle_message_cb,
+  altus_packet_handler handle_message_cb,
   double channel_freq,
   double center_freq,
   double input_sample_rate
@@ -27,20 +27,20 @@ void AltusChannel::handle_message(
   uint16_t computed_crc,
   uint16_t received_crc
 ) {
-  if (computed_crc == received_crc) {
-    d_logger->warn("{} packet {} MATCH", channel_freq, message[4]);
-  } else {
-    d_logger->warn("{} packet {} FAIL", channel_freq, message[4]);
-  }
+  handle_message_cb(*(new AltusPacket(
+    message,
+    computed_crc == received_crc,
+    channel_freq
+  )));
 }
 
 AltusChannel::AltusChannel(
-  handle_message_t handle_message_p,
+  altus_packet_handler handle_message_p,
   double channel,
   double center,
   double s
 ) : gr::hier_block2(
-  "AltusChannel",
+  "AltusChannel " + std::to_string(int(channel)),
   gr::io_signature::make(
     1,
     1,
@@ -159,7 +159,7 @@ AltusChannel::AltusChannel(
   // Conditionally add in arb
   double arb_rate = channel_rate / second_stage_sample_rate;
   if (arb_rate != 1.0) {
-    d_logger->warn("Using ARB Resampler: {}", channel_freq);
+    d_logger->warn("Using ARB Resampler");
     double arb_size = 32;
     double arb_atten = 10;
     double percent = 0.80;

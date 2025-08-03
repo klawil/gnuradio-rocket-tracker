@@ -29,11 +29,6 @@ namespace gr {
   namespace AltusDecoder {
     class ALTUS_DECODER_API Decoder : virtual public gr::block {
       private:
-        // Channel information
-        std::string source_type;
-        uint32_t channel_freq;
-        uint16_t channel_num;
-        
         // Sync word detection
         uint16_t last_16_bits;
         bool found_sync_word;  
@@ -58,8 +53,6 @@ namespace gr {
         // CRC
         uint16_t computed_crc;
         uint16_t received_crc;
-        uint32_t _passed;
-        uint32_t _total;
 
         void reset();
         void parse_packet_bytes(); // Deinterleave and FEC decode
@@ -77,8 +70,6 @@ namespace gr {
         static sptr make(
           handle_message_t handle_message
         );
-        uint32_t get_passed();
-        uint32_t get_parsed();
 
         Decoder(
           handle_message_t handle_message

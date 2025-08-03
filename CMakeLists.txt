@@ -2,7 +2,10 @@
 # Project setup
 ########################################################################
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.30)
+cmake_policy(SET CMP0148 OLD)
+SET(CMAKE_CXX_STANDARD 20)
+
 project(AltusTracker LANGUAGES CXX C VERSION "0.0.1")
 
 # Make sure our local CMake Modules path comes first
@@ -175,13 +178,12 @@ link_directories(
 
 set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wno-unused-local-typedef -Wno-deprecated-declarations -Wno-error=deprecated-declarations -g3")
 
-SET(CMAKE_CXX_STANDARD 17)
-
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wno-narrowing -fvisibility=hidden -fPIC")
 
 list(APPEND altus_tracker_sources
   altus-tracker/altus_decoder.cc
   altus-tracker/altus_channel.cc
+  altus-tracker/altus_packet.cc
 )
 
 # list(APPEND altus_tracker_headers)

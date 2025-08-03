@@ -54,9 +54,8 @@ namespace gr {
 
     // Reset function
     void Decoder::reset() {
-      // // Check for a reset occurring when sync word has been found
+      // Check for a reset occurring when sync word has been found
       if (
-        // source_type == "file" &&
         found_sync_word &&
         buffers_filled_for_packet * 2 < BYTES_PER_MESSAGE
       ) {
@@ -65,7 +64,6 @@ namespace gr {
 
       // Reset the variables used when looking for the sync word
       last_16_bits = 0;
-      // last_last_16_bits = 0;
       found_sync_word = false;
 
       // Reset the buffer variables
@@ -245,26 +243,7 @@ namespace gr {
         add_byte_to_crc(message[b], b);
       }
       
-      // Check CRC match
-      _total++;
-      if (computed_crc == received_crc) {
-        _passed++;
-        d_logger->warn("CRC matched (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
-      } else {
-        d_logger->warn("CRC failed (msg type: {}, passed: {}, total: {})", message[4], _passed, _total);
-      }
       handle_message(message, computed_crc, received_crc);
-
-      // Send out message (log for now)
-      // @TODO
-    }
-
-    uint32_t Decoder::get_parsed() {
-      return _total;
-    }
-
-    uint32_t Decoder::get_passed() {
-      return _passed;
     }
 
     // Work function
@@ -285,9 +264,8 @@ namespace gr {
 
         // Look for the sync word
         if (!found_sync_word) {
-          // last_last_16_bits = (last_last_16_bits << 1) | (last_16_bits & 0x1000 >> 3);
           last_16_bits = (last_16_bits << 1) | (in[index]);
-          if ((last_16_bits & 0xFFFF) == SYNC_WORD) {
+          if (last_16_bits == SYNC_WORD) {
             found_sync_word = true;
           }
         } else {

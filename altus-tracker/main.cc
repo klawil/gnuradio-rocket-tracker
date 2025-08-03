@@ -19,6 +19,7 @@
 
 #include "constants.h"
 #include "altus_channel.h"
+#include "altus_packet.h"
 
 namespace po = boost::program_options;
 
@@ -68,10 +69,10 @@ void signal_handler(int signal) {
 }
 
 void message_handler(
-  uint8_t message[BYTES_PER_MESSAGE],
-  uint16_t,
-  uint16_t
-) {}
+  AltusPacket packet
+) {
+  std::cout << "Packet 2: " << packet.to_string() << std::endl;
+}
 
 int main(int argc, char **argv) {
   po::options_description desc("Options");
@@ -89,13 +90,13 @@ int main(int argc, char **argv) {
 
   if (vm.count("version")) {
     std::cout << "Version 0.0.1\n";
-    exit(0);
+    return 0;
   }
 
   if (vm.count("help")) {
     std::cout << "Usage: trunk-recorder [options]\n";
     std::cout << desc;
-    exit(0);
+    return 0;
   }
 
   tb = gr::make_top_block("Altus");

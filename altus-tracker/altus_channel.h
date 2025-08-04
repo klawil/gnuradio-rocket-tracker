@@ -38,7 +38,7 @@ class AltusChannel;
 
 typedef std::shared_ptr<AltusChannel> altus_channel_sptr;
 
-typedef std::function<void (AltusPacket)> altus_packet_handler;
+typedef std::function<void (AltosBasePacket *)> altus_packet_handler;
 
 /**
  * @brief Generate an altus channel block

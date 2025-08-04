@@ -41,21 +41,15 @@ gr::block_sptr make_file_source(
     file_path
   );
 
-  gr::blocks::head::sptr head = gr::blocks::head::make(
-    sizeof(gr_complex),
-    sample_rate * 10
-  );
-  tb->connect(file, 0, head, 0);
-
   if (!do_throttle) {
-    return head;
+    return file;
   }
 
   gr::blocks::throttle::sptr throttle = gr::blocks::throttle::make(
     sizeof(gr_complex),
     sample_rate
   );
-  tb->connect(head, 0, throttle, 0);
+  tb->connect(file, 0, throttle, 0);
 
   return throttle;
 }
@@ -69,9 +63,9 @@ void signal_handler(int signal) {
 }
 
 void message_handler(
-  AltusPacket packet
+  AltosBasePacket *packet
 ) {
-  std::cout << packet.to_string() << std::endl;
+  std::cout << packet->to_string() << std::endl;
 }
 
 int main(int argc, char **argv) {

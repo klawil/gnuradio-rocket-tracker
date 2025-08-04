@@ -27,11 +27,10 @@ void AltusChannel::handle_message(
   uint16_t computed_crc,
   uint16_t received_crc
 ) {
-  handle_message_cb(*(new AltusPacket(
+  handle_message_cb(make_altus_packet(
     message,
-    computed_crc == received_crc,
     channel_freq
-  )));
+  ));
 }
 
 AltusChannel::AltusChannel(

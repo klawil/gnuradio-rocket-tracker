@@ -22,4 +22,4 @@ echo ""
 echo "*************"
 echo "altus-tracker"
 echo ""
-./altus-tracker
+./altus-tracker --file test

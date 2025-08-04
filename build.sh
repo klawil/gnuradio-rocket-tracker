@@ -22,4 +22,5 @@ echo ""
 echo "*************"
 echo "altus-tracker"
 echo ""
-./altus-tracker --file test
+# ./altus-tracker
+./altus-tracker --file test --throttle

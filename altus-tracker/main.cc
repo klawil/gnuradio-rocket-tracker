@@ -11,10 +11,12 @@
 
 #include <osmosdr/source.h>
 
+#include <chrono>
 #include <csignal>
 #include <iostream>
 #include <math.h>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "constants.h"
@@ -30,6 +32,10 @@ bool running = true;
 const double sample_rate = 10000000;
 const char * data_file = "../data.cfile";
 uint32_t input_center_freq = 434800000;
+
+gr::basic_block_sptr source;
+std::vector<uint32_t> channels;
+std::vector<altus_channel_sptr> channel_blocks;
 
 gr::block_sptr make_file_source(
   gr::top_block_sptr tb,
@@ -68,6 +74,61 @@ void message_handler(
   std::cout << packet->to_string() << std::endl;
 }
 
+void add_channel(uint32_t channel_freq) {
+  // Check to see if the channel already exists
+  for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
+    if (*c == channel_freq) {
+      return;
+    }
+  }
+
+  // Add the channel
+  tb->lock();
+  channels.push_back(channel_freq);
+  altus_channel_sptr channel = make_altus_channel(
+    message_handler,
+    channel_freq,
+    double(input_center_freq),
+    double(sample_rate)
+  );
+  tb->connect(source, 0, channel, 0);
+  channel_blocks.push_back(channel);
+  tb->unlock();
+}
+
+void rm_channel(uint32_t channel_freq) {
+  // Check to see if the channel already exists
+  uint8_t exists = 0;
+  for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
+    if (*c == channel_freq) {
+      exists = 1;
+    }
+  }
+  if (exists == 0) {
+    return;
+  }
+
+  // Remove the channel
+  tb->lock();
+  for (size_t ci = channel_blocks.size() - 1; ci >= 1; ci--) {
+    altus_channel_sptr cb = channel_blocks[ci];
+    if (cb->channel_freq == double(channel_freq)) {
+      tb->disconnect(cb);
+      channel_blocks.erase(channel_blocks.begin() + ci);
+
+      break;
+    }
+  }
+
+  for (size_t ci = channels.size() - 1; ci >= 1; ci--) {
+    if (channels[ci] == channel_freq) {
+      channels.erase(channels.begin() + ci);
+      break;
+    }
+  }
+  tb->unlock();
+}
+
 int main(int argc, char **argv) {
   po::options_description desc("Options");
   desc.add_options()
@@ -95,7 +156,6 @@ int main(int argc, char **argv) {
 
   tb = gr::make_top_block("Altus");
 
-  gr::basic_block_sptr source;
   std::string source_type = "sdr";
   if (vm.count("file")) {
     std::cout << "Using data from file " << data_file << "\n";
@@ -122,7 +182,6 @@ int main(int argc, char **argv) {
   }
 
   // Generate all of the channel frequencies
-  std::vector<uint32_t> channels;
   channels.push_back(434550000); // CH 01
   channels.push_back(434650000); // CH 02
   channels.push_back(434750000); // CH 03
@@ -133,7 +192,7 @@ int main(int argc, char **argv) {
   channels.push_back(435250000); // CH 08
   channels.push_back(435350000); // CH 09
   channels.push_back(435450000); // CH 10
-  channels.push_back(436550000); // Wm
+  // channels.push_back(436550000); // Wm
 
   for (uint8_t c = 0; c < channels.size(); c++) {
     altus_channel_sptr channel = make_altus_channel(
@@ -143,12 +202,36 @@ int main(int argc, char **argv) {
       double(sample_rate)
     );
     tb->connect(source, 0, channel, 0);
+    channel_blocks.push_back(channel);
   }
 
   tb->start();
   std::signal(SIGINT, &signal_handler);
   std::cout << "\nRunning, press Ctrl + C to exit\n\n";
+
+  std::this_thread::sleep_for(std::chrono::seconds(3));
+  std::cout << "\nAdding channel\n\n";
+  uint32_t new_chan = 436550000;
+  add_channel(new_chan);
+
+  std::this_thread::sleep_for(std::chrono::seconds(3));
+  std::cout << "\nRemoving channel\n\n";
+  rm_channel(new_chan);
+
+  std::this_thread::sleep_for(std::chrono::seconds(3));
+  std::cout << "\nAdding channel\n\n";
+  add_channel(new_chan);
+
+  std::this_thread::sleep_for(std::chrono::seconds(3));
+  std::cout << "\nRemoving channel\n\n";
+  rm_channel(new_chan);
+
+  std::this_thread::sleep_for(std::chrono::seconds(3));
+  std::cout << "\nAdding channel\n\n";
+  add_channel(new_chan);
+
   tb->wait();
 
   std::cout << "\nDone Running\n";
+  tb->stop();
 }

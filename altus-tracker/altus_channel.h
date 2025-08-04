@@ -75,7 +75,6 @@ class AltusChannel : public gr::hier_block2 {
 
   private:
     // Channel information
-    double channel_freq;
     double center_freq;
     double input_sample_rate;
 
@@ -104,6 +103,8 @@ class AltusChannel : public gr::hier_block2 {
     gr::AltusDecoder::Decoder::sptr altus_decode;
 
   public:
+    double channel_freq;
+
     /**
      * @brief Construct a new Altus Channel:: Altus Channel object
      * 

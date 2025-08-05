@@ -110,12 +110,12 @@ AltusChannel::AltusChannel(
     second_stage_decimation,
     second_stage_taps
   );
-  squelch = gr::analog::pwr_squelch_cc::make(
-    power_squelch_level,
-    0.0001,
-    0,
-    true
-  );
+  // squelch = gr::analog::pwr_squelch_cc::make(
+  //   power_squelch_level,
+  //   0.0001,
+  //   0,
+  //   true
+  // );
   fll_band_edge = gr::digital::fll_band_edge_cc::make(
     samples_per_symbol,
     0.2,
@@ -158,7 +158,7 @@ AltusChannel::AltusChannel(
   // Conditionally add in arb
   double arb_rate = channel_rate / second_stage_sample_rate;
   if (arb_rate != 1.0) {
-    d_logger->warn("Using ARB Resampler");
+    // d_logger->warn("Using ARB Resampler");
     double arb_size = 32;
     double arb_atten = 10;
     double percent = 0.80;
@@ -178,11 +178,13 @@ AltusChannel::AltusChannel(
       arb_taps
     );
     connect(second_stage_filter, 0, arb_resampler, 0);
-    connect(arb_resampler, 0, squelch, 0);
+    // connect(arb_resampler, 0, squelch, 0);
+    connect(arb_resampler, 0, fll_band_edge, 0);
   } else {
-    connect(second_stage_filter, 0, squelch, 0);
+    // connect(second_stage_filter, 0, squelch, 0);
+    connect(second_stage_filter, 0, fll_band_edge, 0);
   }
-  connect(squelch, 0, fll_band_edge, 0);
+  // connect(squelch, 0, fll_band_edge, 0);
   connect(fll_band_edge, 0, fmdemod, 0);
   connect(fmdemod, 0, clock_recovery, 0);
   connect(clock_recovery, 0, slicer, 0);

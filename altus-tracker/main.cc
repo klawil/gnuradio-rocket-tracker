@@ -19,9 +19,19 @@
 #include <thread>
 #include <vector>
 
+#include <errno.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "constants.h"
 #include "altus_channel.h"
 #include "altus_packet.h"
+
+int socketConn = -1;
+int pipeFd = -1;
 
 namespace po = boost::program_options;
 
@@ -68,10 +78,171 @@ void signal_handler(int signal) {
   }
 }
 
+std::vector<std::string> packet_queue;
+std::mutex packet_queue_mutex;
 void message_handler(
   AltosBasePacket *packet
 ) {
-  std::cout << packet->to_string() << std::endl;
+  std::string msg = packet->to_string() + "\n";
+  packet_queue_mutex.lock();
+  packet_queue.push_back(msg);
+  packet_queue_mutex.unlock();
+}
+
+void open_socket(std::string host, uint16_t port) {
+  // Open the socket (synchronously)
+  if ((socketConn = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    std::cout << "Failed to create socket: " << strerror(errno) << std::endl;
+    return;
+  }
+
+  // Specify the address
+  struct sockaddr_in serverAddress;
+  serverAddress.sin_family = AF_INET;
+  serverAddress.sin_port = htons(port);
+  if (inet_pton(AF_INET, host.c_str(), &serverAddress.sin_addr) <= 0) {
+    std::cout << "Failed to set socket address to " << host << ": " << strerror(errno) << std::endl;
+    close(socketConn);
+    socketConn = -1;
+    return;
+  }
+
+  // Send the connection request
+  if (
+    connect(socketConn, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0 &&
+    errno != EINPROGRESS
+  ) {
+    std::cout << "Failed to open socket: " << strerror(errno) << std::endl;
+    close(socketConn);
+    socketConn = -1;
+    return;
+  } else {
+    std::cout << "Socket opening in progress" << std::endl;
+  }
+
+  static char init_packet_buffer[2] = { 0 };
+  bool is_connected = false;
+  bool keep_loop = true;
+  while (true) {
+    // Read some bytes
+    ssize_t valread;
+    bool is_break = false;
+    while ((valread = read(socketConn, &init_packet_buffer[0], 2)) != 0) {
+      std::cout << "Received initial bytes: " << init_packet_buffer[0] << init_packet_buffer[1] << std::endl;
+      is_connected = true;
+      is_break = true;
+      break;
+    }
+    if (is_break) {
+      break;
+    }
+
+    // Check for errors
+    if (
+      valread < 0 &&
+      errno != EWOULDBLOCK &&
+      errno != EAGAIN &&
+      errno != ECONNREFUSED
+    ) {
+      std::cout << "Failed to read from socket: " << strerror(errno) << std::endl;
+      break;
+    } else if (
+      errno > 0 &&
+      errno != EWOULDBLOCK &&
+      errno != EAGAIN
+    ) {
+      std::cout << "Failed to read from socket(2): " << strerror(errno) << std::endl;
+      break;
+    }
+  }
+
+  if (is_connected) {
+    std::cout << "Socket open at " << host << ":" << port << std::endl;
+  } else {
+    std::cout << "Socket failed to open" << std::endl;
+    close(socketConn);
+    socketConn = -1;
+  }
+}
+
+void open_pipe(std::string pipe) {
+  // Open the pipe (synchronously)
+  mkfifo(pipe.c_str(), 0666);
+  pipeFd = open(pipe.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
+  if (pipeFd == -1) {
+    std::cout << "Error opening pipe: " << strerror(errno) << std::endl;
+    return;
+  }
+
+  std::cout << "Pipe opened at " << pipe << std::endl;
+}
+
+std::chrono::milliseconds last_message = duration_cast< std::chrono::milliseconds >(
+  std::chrono::system_clock::now().time_since_epoch()
+);
+const uint32_t min_ping_wait = 5000; // in ms
+const std::string ping_message = "ping\n";
+
+void process_queue(
+  bool use_pipe,
+  std::string pipe_name,
+  std::string socket_host,
+  uint16_t socket_port
+) {
+  // Set up the pipe or socket
+  if (use_pipe) {
+    open_pipe(pipe_name);
+  } else {
+    open_socket(socket_host, socket_port);
+  }
+
+  while (running) {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    packet_queue_mutex.lock();
+    bool sent_message = false;
+    for (std::vector<std::string>::iterator msg_ptr = packet_queue.begin(); msg_ptr != packet_queue.end(); msg_ptr++) {
+      std::string msg = *msg_ptr;
+
+      // Write to pipe (if indicated)
+      if (pipeFd != -1) {
+        sent_message = true;
+        write(pipeFd, msg.c_str(), msg.length());
+      } else if (socketConn != -1) {
+        sent_message = true;
+        write(socketConn, msg.c_str(), msg.length());
+      }
+    }
+    packet_queue.clear();
+    packet_queue_mutex.unlock();
+    if (sent_message) {
+      last_message = duration_cast< std::chrono::milliseconds >(
+        std::chrono::system_clock::now().time_since_epoch()
+      );
+    } else {
+      std::chrono::milliseconds now = duration_cast< std::chrono::milliseconds >(
+        std::chrono::system_clock::now().time_since_epoch()
+      );
+      if (uint32_t(now.count() - last_message.count()) >= min_ping_wait) {
+        if (pipeFd != -1) {
+          write(pipeFd, ping_message.c_str(), ping_message.length());
+        } else if (socketConn != -1) {
+          write(socketConn, ping_message.c_str(), ping_message.length());
+        } else if (use_pipe) {
+          open_pipe(pipe_name);
+        } else {
+          open_socket(socket_host, socket_port);
+        }
+        last_message = now;
+      }
+    }
+  }
+
+  if (pipeFd != -1) {
+    close(pipeFd);
+  }
+  if (socketConn != -1) {
+    close(socketConn);
+  }
 }
 
 void add_channel(uint32_t channel_freq) {
@@ -137,6 +308,9 @@ int main(int argc, char **argv) {
     ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
     ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
+    ("socket", po::value<std::string>(), "Socket IP to connect to (if using sockets)")
+    ("port", po::value<uint16_t>(), "Socket port to connect to (if using sockets)")
+    ("pipe,p", po::value<std::string>(), "Pipe file to connect to")
     ("throttle", "Throttle (only applies to file source)");
 
   po::variables_map vm;
@@ -154,10 +328,33 @@ int main(int argc, char **argv) {
     return 0;
   }
 
+  std::string pipe_name = "/tmp/altus-tracker-fifo-out";
+  std::string socket_host;
+  uint16_t socket_port = 8765;
+  bool use_pipe = true;
+  if (vm.count("socket")) {
+    use_pipe = false;
+    socket_host = vm["socket"].as<std::string>();
+    if (vm.count("port")) {
+      socket_port = vm["port"].as<uint16_t>();
+    }
+  } else if (vm.count("pipe")) {
+    pipe_name = vm["pipe"].as<std::string>();
+  }
+
+  std::thread packet_writer (
+    process_queue,
+    use_pipe,
+    pipe_name,
+    socket_host,
+    socket_port
+  );
+
   tb = gr::make_top_block("Altus");
 
   std::string source_type = "sdr";
   if (vm.count("file")) {
+    data_file = vm["file"].as<std::string>().c_str();
     std::cout << "Using data from file " << data_file << "\n";
     source = make_file_source(
       tb,
@@ -192,7 +389,7 @@ int main(int argc, char **argv) {
   channels.push_back(435250000); // CH 08
   channels.push_back(435350000); // CH 09
   channels.push_back(435450000); // CH 10
-  // channels.push_back(436550000); // Wm
+  channels.push_back(436550000); // Wm
 
   for (uint8_t c = 0; c < channels.size(); c++) {
     altus_channel_sptr channel = make_altus_channel(
@@ -209,29 +406,31 @@ int main(int argc, char **argv) {
   std::signal(SIGINT, &signal_handler);
   std::cout << "\nRunning, press Ctrl + C to exit\n\n";
 
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  std::cout << "\nAdding channel\n\n";
-  uint32_t new_chan = 436550000;
-  add_channel(new_chan);
+  // std::this_thread::sleep_for(std::chrono::seconds(3));
+  // std::cout << "\nAdding channel\n\n";
+  // uint32_t new_chan = 436550000;
+  // add_channel(new_chan);
 
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  std::cout << "\nRemoving channel\n\n";
-  rm_channel(new_chan);
+  // std::this_thread::sleep_for(std::chrono::seconds(3));
+  // std::cout << "\nRemoving channel\n\n";
+  // rm_channel(new_chan);
 
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  std::cout << "\nAdding channel\n\n";
-  add_channel(new_chan);
+  // std::this_thread::sleep_for(std::chrono::seconds(3));
+  // std::cout << "\nAdding channel\n\n";
+  // add_channel(new_chan);
 
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  std::cout << "\nRemoving channel\n\n";
-  rm_channel(new_chan);
+  // std::this_thread::sleep_for(std::chrono::seconds(3));
+  // std::cout << "\nRemoving channel\n\n";
+  // rm_channel(new_chan);
 
-  std::this_thread::sleep_for(std::chrono::seconds(3));
-  std::cout << "\nAdding channel\n\n";
-  add_channel(new_chan);
+  // std::this_thread::sleep_for(std::chrono::seconds(3));
+  // std::cout << "\nAdding channel\n\n";
+  // add_channel(new_chan);
 
   tb->wait();
 
-  std::cout << "\nDone Running\n";
   tb->stop();
+  std::cout << "\nDone Running\n";
+  running = false;
+  packet_writer.join();
 }

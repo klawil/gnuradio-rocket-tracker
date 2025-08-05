@@ -24,22 +24,19 @@ AltosBasePacket::AltosBasePacket(
 
   str_value << "{\"serial\":" << std::fixed << std::setprecision(0) << serial << ",";
   str_value << "\"freq\":" << std::fixed << std::setprecision(3) << (channel_freq / 1000000) << ",";
-  str_value << "\"type\":" << std::uppercase << +type << ",";
+  str_value << "\"type\":" << +type << ",";
   str_value << "\"rtime\":" << std::fixed << std::setprecision(0) << rockettime << ",";
   str_value << "\"time\":" << std::fixed << std::setprecision(0) << ms.count() << ",";
+  str_value << "\"raw\":\"" << std::hex;
+  for (uint8_t i = 0; i < BYTES_PER_MESSAGE; i++) {
+    str_value << std::setw(2) << std::setfill('0') << +message[i];
+  }
+  str_value << std::dec << "\",";
 }
 AltosBasePacket::~AltosBasePacket() {}
 
 std::string AltosBasePacket::to_string() {
-  std::stringstream s;
-  // float channel_mhz = channel_freq / 1000000;
-  // s << "Packet from " << std::fixed << std::setprecision(0) << serial;
-  // s << " on channel " << std::fixed << std::setprecision(3) << channel_mhz;
-  // s << " MHz, Type 0x";
-  // s << std::uppercase << std::setfill('0') << std::setw(2) << std::hex << +type << std::dec << " at ";
-  // s << std::fixed << rockettime << ": ";
-  s << str_value.str();
-  return s.str();
+  return str_value.str();
 }
 
 double AltosBasePacket::mega_battery_voltage(int16_t v) {

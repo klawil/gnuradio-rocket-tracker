@@ -37,7 +37,9 @@ class AltosBasePacket {
     std::string string(int i, int l) {
       std::stringstream s;
       for (int x = i; x < i + l; x++) {
-        s << message[x];
+        if (message[x] != 0) {
+          s << message[x];
+        }
       }
       return s.str();
     }
@@ -46,6 +48,7 @@ class AltosBasePacket {
     double channel_freq;
     uint8_t type;
     uint16_t rockettime;
+    uint16_t serial;
 
   public:
     AltosBasePacket(
@@ -62,7 +65,6 @@ class AltosBasePacket {
 
     std::stringstream str_value;
     std::string to_string();
-    uint16_t serial;
 };
 
 class AltosTelemetrySensor : public AltosBasePacket {

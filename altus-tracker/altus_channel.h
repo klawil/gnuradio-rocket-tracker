@@ -38,7 +38,6 @@ class AltusChannel;
 
 typedef std::shared_ptr<AltusChannel> altus_channel_sptr;
 
-typedef std::function<void (AltosBasePacket *)> altus_packet_handler;
 
 /**
  * @brief Generate an altus channel block
@@ -50,7 +49,6 @@ typedef std::function<void (AltosBasePacket *)> altus_packet_handler;
  * @return altus_channel_sptr The Altus Channel block
  */
 altus_channel_sptr make_altus_channel(
-  altus_packet_handler handle_message_cb,
   double channel_freq,
   double center_freq,
   double input_sample_rate
@@ -67,7 +65,6 @@ class AltusChannel : public gr::hier_block2 {
    * @return altus_channel_sptr The Altus Channel block
    */
   friend altus_channel_sptr make_altus_channel(
-    altus_packet_handler handle_message_cb,
     double channel_freq,
     double center_freq,
     double input_sample_rate
@@ -77,8 +74,6 @@ class AltusChannel : public gr::hier_block2 {
     // Channel information
     double center_freq;
     double input_sample_rate;
-
-    altus_packet_handler handle_message_cb;
 
     // Altus channel constants
     const uint8_t samples_per_symbol = 5;
@@ -114,7 +109,6 @@ class AltusChannel : public gr::hier_block2 {
      * @param s The receiver sample rate
      */
     AltusChannel(
-      altus_packet_handler handle_message_cb,
       double channel_freq,
       double center_freq,
       double input_sample_rate
@@ -144,6 +138,10 @@ class AltusChannel : public gr::hier_block2 {
      * @param c The new center frequency
      */
     void set_center(double c);
+
+    // Message queue
+    std::vector<std::string> packet_queue;
+    std::mutex packet_queue_mutex;
 };
 
 #endif

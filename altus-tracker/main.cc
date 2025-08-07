@@ -31,7 +31,6 @@
 #include "altus_packet.h"
 
 int socketConn = -1;
-int pipeFd = -1;
 
 namespace po = boost::program_options;
 
@@ -76,17 +75,6 @@ void signal_handler(int signal) {
     tb->stop();
     running = false;
   }
-}
-
-std::vector<std::string> packet_queue;
-std::mutex packet_queue_mutex;
-void message_handler(
-  AltosBasePacket *packet
-) {
-  std::string msg = packet->to_string() + "\n";
-  packet_queue_mutex.lock();
-  packet_queue.push_back(msg);
-  packet_queue_mutex.unlock();
 }
 
 void open_socket(std::string host, uint16_t port) {
@@ -165,55 +153,47 @@ void open_socket(std::string host, uint16_t port) {
   }
 }
 
-void open_pipe(std::string pipe) {
-  // Open the pipe (synchronously)
-  mkfifo(pipe.c_str(), 0666);
-  pipeFd = open(pipe.c_str(), O_WRONLY | O_CREAT | O_TRUNC, 0666);
-  if (pipeFd == -1) {
-    std::cout << "Error opening pipe: " << strerror(errno) << std::endl;
-    return;
-  }
-
-  std::cout << "Pipe opened at " << pipe << std::endl;
-}
-
 std::chrono::milliseconds last_message = duration_cast< std::chrono::milliseconds >(
   std::chrono::system_clock::now().time_since_epoch()
 );
 const uint32_t min_ping_wait = 5000; // in ms
 const std::string ping_message = "ping\n";
 
+uint32_t total_sent = 0;
+uint32_t times_sent = 0;
 void process_queue(
-  bool use_pipe,
-  std::string pipe_name,
   std::string socket_host,
   uint16_t socket_port
 ) {
-  // Set up the pipe or socket
-  if (use_pipe) {
-    open_pipe(pipe_name);
-  } else {
-    open_socket(socket_host, socket_port);
-  }
+  // Set up the socket
+  open_socket(socket_host, socket_port);
 
   while (running) {
-    std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    packet_queue_mutex.lock();
     bool sent_message = false;
-    for (std::vector<std::string>::iterator msg_ptr = packet_queue.begin(); msg_ptr != packet_queue.end(); msg_ptr++) {
-      std::string msg = *msg_ptr;
-
-      // Write to pipe (if indicated)
-      if (pipeFd != -1) {
-        sent_message = true;
-        write(pipeFd, msg.c_str(), msg.length());
-      } else if (socketConn != -1) {
-        sent_message = true;
+    uint16_t packets_sent = 0;
+    std::stringstream msg_value;
+    for (std::vector<altus_channel_sptr>::iterator chan_ptr = channel_blocks.begin(); chan_ptr != channel_blocks.end(); chan_ptr++) {
+      auto chan = *chan_ptr;
+      chan->packet_queue_mutex.lock();
+      for (std::vector<std::string>::iterator msg_ptr = chan->packet_queue.begin(); msg_ptr != chan->packet_queue.end(); msg_ptr++) {
+        std::string msg = *msg_ptr;
+        msg_value << msg;
+        packets_sent++;
+      }
+      chan->packet_queue.clear();
+      chan->packet_queue_mutex.unlock();
+    }
+    if (packets_sent > 0) {
+      // Write to socket (if indicated)
+      if (socketConn != -1) {
+        std::string msg = msg_value.str();
         write(socketConn, msg.c_str(), msg.length());
+        total_sent += packets_sent;
+        times_sent++;
+        sent_message = true;
+        // std::cout << "Packets sent: " << packets_sent << " (" << total_sent << " in " << times_sent << " batches)" << std::endl;
       }
     }
-    packet_queue.clear();
-    packet_queue_mutex.unlock();
     if (sent_message) {
       last_message = duration_cast< std::chrono::milliseconds >(
         std::chrono::system_clock::now().time_since_epoch()
@@ -223,41 +203,39 @@ void process_queue(
         std::chrono::system_clock::now().time_since_epoch()
       );
       if (uint32_t(now.count() - last_message.count()) >= min_ping_wait) {
-        if (pipeFd != -1) {
-          write(pipeFd, ping_message.c_str(), ping_message.length());
-        } else if (socketConn != -1) {
+        std::cout << "Ping after " << uint32_t(now.count() - last_message.count()) << std::endl;
+        if (socketConn != -1) {
+          total_sent += 1;
+          times_sent++;
           write(socketConn, ping_message.c_str(), ping_message.length());
-        } else if (use_pipe) {
-          open_pipe(pipe_name);
         } else {
           open_socket(socket_host, socket_port);
         }
         last_message = now;
       }
     }
+    
+    // Wait before starting the next run
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  if (pipeFd != -1) {
-    close(pipeFd);
-  }
   if (socketConn != -1) {
     close(socketConn);
   }
 }
 
 void add_channel(uint32_t channel_freq) {
-  // Check to see if the channel already exists
-  for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
-    if (*c == channel_freq) {
-      return;
-    }
-  }
+  // // Check to see if the channel already exists
+  // for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
+  //   if (*c == channel_freq) {
+  //     return;
+  //   }
+  // }
 
   // Add the channel
   tb->lock();
   channels.push_back(channel_freq);
   altus_channel_sptr channel = make_altus_channel(
-    message_handler,
     channel_freq,
     double(input_center_freq),
     double(sample_rate)
@@ -308,9 +286,8 @@ int main(int argc, char **argv) {
     ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
     ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
-    ("socket", po::value<std::string>(), "Socket IP to connect to (if using sockets)")
-    ("port", po::value<uint16_t>(), "Socket port to connect to (if using sockets)")
-    ("pipe,p", po::value<std::string>(), "Pipe file to connect to")
+    ("socket", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
+    ("port", po::value<uint16_t>(), "Socket port to connect to (default 8765)")
     ("throttle", "Throttle (only applies to file source)");
 
   po::variables_map vm;
@@ -328,29 +305,24 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  std::string pipe_name = "/tmp/altus-tracker-fifo-out";
-  std::string socket_host;
+  std::string socket_host = "127.0.0.1";
   uint16_t socket_port = 8765;
-  bool use_pipe = true;
   if (vm.count("socket")) {
-    use_pipe = false;
     socket_host = vm["socket"].as<std::string>();
-    if (vm.count("port")) {
-      socket_port = vm["port"].as<uint16_t>();
-    }
-  } else if (vm.count("pipe")) {
-    pipe_name = vm["pipe"].as<std::string>();
+  }
+  if (vm.count("port")) {
+    socket_port = vm["port"].as<uint16_t>();
   }
 
   std::thread packet_writer (
     process_queue,
-    use_pipe,
-    pipe_name,
     socket_host,
     socket_port
   );
 
   tb = gr::make_top_block("Altus");
+  tb->lock();
+  tb->unlock();
 
   std::string source_type = "sdr";
   if (vm.count("file")) {
@@ -379,58 +351,29 @@ int main(int argc, char **argv) {
   }
 
   // Generate all of the channel frequencies
-  channels.push_back(434550000); // CH 01
-  channels.push_back(434650000); // CH 02
-  channels.push_back(434750000); // CH 03
-  channels.push_back(434850000); // CH 04
-  channels.push_back(434950000); // CH 05
-  channels.push_back(435050000); // CH 06
-  channels.push_back(435150000); // CH 07
-  channels.push_back(435250000); // CH 08
-  channels.push_back(435350000); // CH 09
-  channels.push_back(435450000); // CH 10
-  channels.push_back(436550000); // Wm
+  add_channel(434550000); // Ch 01
+  add_channel(434550000); // Ch 02
+  add_channel(434550000); // Ch 03
+  add_channel(434550000); // Ch 04
+  add_channel(434550000); // Ch 05
+  add_channel(434550000); // Ch 06
+  add_channel(434550000); // Ch 07
+  // add_channel(434550000); // Ch 08
+  // add_channel(434550000); // Ch 09
+  // add_channel(434550000); // Ch 10
 
-  for (uint8_t c = 0; c < channels.size(); c++) {
-    altus_channel_sptr channel = make_altus_channel(
-      message_handler,
-      double(channels[c]),
-      double(input_center_freq),
-      double(sample_rate)
-    );
-    tb->connect(source, 0, channel, 0);
-    channel_blocks.push_back(channel);
-  }
+  add_channel(436550000); // Wm
+  add_channel(436550000); // Wm
+  add_channel(436550000); // Wm
 
   tb->start();
   std::signal(SIGINT, &signal_handler);
   std::cout << "\nRunning, press Ctrl + C to exit\n\n";
 
-  // std::this_thread::sleep_for(std::chrono::seconds(3));
-  // std::cout << "\nAdding channel\n\n";
-  // uint32_t new_chan = 436550000;
-  // add_channel(new_chan);
-
-  // std::this_thread::sleep_for(std::chrono::seconds(3));
-  // std::cout << "\nRemoving channel\n\n";
-  // rm_channel(new_chan);
-
-  // std::this_thread::sleep_for(std::chrono::seconds(3));
-  // std::cout << "\nAdding channel\n\n";
-  // add_channel(new_chan);
-
-  // std::this_thread::sleep_for(std::chrono::seconds(3));
-  // std::cout << "\nRemoving channel\n\n";
-  // rm_channel(new_chan);
-
-  // std::this_thread::sleep_for(std::chrono::seconds(3));
-  // std::cout << "\nAdding channel\n\n";
-  // add_channel(new_chan);
-
   tb->wait();
 
-  tb->stop();
-  std::cout << "\nDone Running\n";
+  // tb->stop();
+  std::cout << "\nDone Running\n\n";
   running = false;
   packet_writer.join();
 }

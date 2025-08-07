@@ -7,13 +7,11 @@
 #include <boost/log/trivial.hpp>
 
 altus_channel_sptr make_altus_channel(
-  altus_packet_handler handle_message_cb,
   double channel_freq,
   double center_freq,
   double input_sample_rate
 ) {
   return gnuradio::get_initial_sptr(new AltusChannel(
-    handle_message_cb,
     channel_freq,
     center_freq,
     input_sample_rate
@@ -27,14 +25,17 @@ void AltusChannel::handle_message(
   uint16_t computed_crc,
   uint16_t received_crc
 ) {
-  handle_message_cb(make_altus_packet(
+  auto packet = make_altus_packet(
     message,
     channel_freq
-  ));
+  );
+  std::string msg = packet->to_string() + "\n";
+  packet_queue_mutex.lock();
+  packet_queue.push_back(msg);
+  packet_queue_mutex.unlock();
 }
 
 AltusChannel::AltusChannel(
-  altus_packet_handler handle_message_p,
   double channel,
   double center,
   double s
@@ -51,7 +52,6 @@ AltusChannel::AltusChannel(
   channel_freq = channel;
   center_freq = center;
   input_sample_rate = s;
-  handle_message_cb = handle_message_p;
 
   // Calculate the values needed to generate filters
   float channel_offset = channel_freq - center_freq;

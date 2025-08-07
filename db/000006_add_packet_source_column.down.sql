@@ -1,0 +1,2 @@
+ALTER TABLE public.packets
+  DROP COLUMN IF EXISTS;

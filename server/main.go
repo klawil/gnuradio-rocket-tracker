@@ -43,6 +43,30 @@ func (c *Client) SetId() {
 	c.Id = string(b)
 }
 
+func (c *Client) Save(db *sql.DB) {
+	_, err := db.Exec(
+		"INSERT INTO sources (id, source_type, source_source) VALUES ($1, $2, $3)",
+		c.Id,
+		c.Type,
+		c.Source,
+	)
+
+	if err != nil {
+		log.WithField("client", c).WithError(err).Error("Failed to save client")
+	}
+}
+
+func (c *Client) Delete(db *sql.DB) {
+	_, err := db.Exec(
+		"UPDATE sources SET deleted_at = now() WHERE id = $1",
+		c.Id,
+	)
+
+	if err != nil {
+		log.WithField("client", c).WithError(err).Error("Failed to save client")
+	}
+}
+
 const (
 	SERVER_HOST = "0.0.0.0"
 	SERVER_PORT = "8765"
@@ -88,8 +112,12 @@ func handleClient(conn net.Conn, db *sql.DB) {
 		Source: conn.RemoteAddr().String(),
 	}
 	client.SetId()
+	client.Save(db)
 	baseLog := log.WithField("client", client)
 	baseLog.Info("New socket client connected")
+	defer func() {
+		client.Delete(db)
+	}()
 
 	_, err := conn.Write([]byte("!!"))
 	if err != nil {
@@ -175,6 +203,7 @@ func main() {
 			Source: "/tmp/altus-tracker-fifo-out",
 		}
 		client.SetId()
+		client.Save(db)
 		baseLog := log.WithField("client", client)
 		baseLog.Info("Pipe source connected")
 
@@ -199,5 +228,6 @@ func main() {
 			time.After(1 * time.Second)
 		}
 		p.Close()
+		client.Delete(db)
 	}
 }

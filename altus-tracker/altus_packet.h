@@ -59,6 +59,7 @@ class AltosBasePacket {
 
     double mega_battery_voltage(int16_t v);
     double mega_pyro_voltage(int16_t v);
+    double mega_pyro_voltage_30v(int16_t v);
     double tele_mini_2_voltage(int16_t v);
     double tele_mini_3_battery_voltage(int16_t v);
     double tele_mini_3_pyro_voltage(int16_t v);
@@ -67,6 +68,7 @@ class AltosBasePacket {
     std::string to_string();
 };
 
+// 0x01, 0x02, 0x03
 class AltosTelemetrySensor : public AltosBasePacket {
   public:
     AltosTelemetrySensor(
@@ -75,6 +77,7 @@ class AltosTelemetrySensor : public AltosBasePacket {
     );
 };
 
+// 0x04
 class AltosTelemetryConfiguration : public AltosBasePacket {
   public:
     AltosTelemetryConfiguration(
@@ -83,6 +86,7 @@ class AltosTelemetryConfiguration : public AltosBasePacket {
     );
 };
 
+// 0x05
 class AltosTelemetryLocation : public AltosBasePacket {
   public:
     AltosTelemetryLocation(
@@ -91,6 +95,7 @@ class AltosTelemetryLocation : public AltosBasePacket {
     );
 };
 
+// 0x06
 class AltosTelemetrySatellite : public AltosBasePacket {
   public:
     AltosTelemetrySatellite(
@@ -99,6 +104,7 @@ class AltosTelemetrySatellite : public AltosBasePacket {
     );
 };
 
+// 0x07
 class AltosTelemetryCompanion : public AltosBasePacket {
   public:
     AltosTelemetryCompanion(
@@ -107,6 +113,7 @@ class AltosTelemetryCompanion : public AltosBasePacket {
     );
 };
 
+// 0x08, 0x12
 class AltosTelemetryMegaSensor : public AltosBasePacket {
   public:
     AltosTelemetryMegaSensor(
@@ -115,6 +122,7 @@ class AltosTelemetryMegaSensor : public AltosBasePacket {
     );
 };
 
+// 0x09, 0x15
 class AltosTelemetryMegaData : public AltosBasePacket {
   public:
     AltosTelemetryMegaData(
@@ -123,6 +131,7 @@ class AltosTelemetryMegaData : public AltosBasePacket {
     );
 };
 
+// 0x0A
 class AltosTelemetryMetrumSensor : public AltosBasePacket {
   public:
     AltosTelemetryMetrumSensor(
@@ -131,6 +140,7 @@ class AltosTelemetryMetrumSensor : public AltosBasePacket {
     );
 };
 
+// 0x0B
 class AltosTelemetryMetrumData : public AltosBasePacket {
   public:
     AltosTelemetryMetrumData(
@@ -139,6 +149,7 @@ class AltosTelemetryMetrumData : public AltosBasePacket {
     );
 };
 
+// 0x10, 0x11
 class AltosTelemetryMini : public AltosBasePacket {
   public:
     AltosTelemetryMini(
@@ -147,6 +158,7 @@ class AltosTelemetryMini : public AltosBasePacket {
     );
 };
 
+// 0x13, 0x14
 class AltosTelemetryMegaNorm : public AltosBasePacket {
   public:
     AltosTelemetryMegaNorm(

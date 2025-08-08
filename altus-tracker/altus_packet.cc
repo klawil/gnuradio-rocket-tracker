@@ -47,6 +47,10 @@ double AltosBasePacket::mega_pyro_voltage(int16_t v) {
   return 3.3 * (v / 4095.0) * (100.0 + 27.0) / 27.0;
 }
 
+double AltosBasePacket::mega_pyro_voltage_30v(int16_t v) {
+  return 3.3 * (v / 4095.0) * (100.0 + 12.0) / 12.0;
+}
+
 double AltosBasePacket::tele_mini_2_voltage(int16_t v) {
   return v / 32767.0 * 3.3 * 127.0 / 27.0;
 }
@@ -252,7 +256,9 @@ AltosTelemetryMegaData::AltosTelemetryMegaData(
 ) : AltosBasePacket(new_message, new_channel_freq) {
   uint8_t state = uint8(5);
   double v_batt = mega_battery_voltage(int16(6));
-  double v_pyro = mega_pyro_voltage(int16(8));
+  double v_pyro = type == 0x09
+    ? mega_pyro_voltage(int16(8))
+    : mega_pyro_voltage_30v(int16(8));
   
   str_value << "\"pyro\":[";
   for (int i = 0; i < 6; i++) {
@@ -260,7 +266,10 @@ AltosTelemetryMegaData::AltosTelemetryMegaData(
     if (i > 0) {
       str_value << ",";
     }
-    str_value << std::fixed << std::setprecision(2) << mega_pyro_voltage((v << 4) | (v >> 4));
+    double val = type == 0x09
+      ? mega_pyro_voltage((v << 4) | (v >> 4))
+      : mega_pyro_voltage_30v((v << 4) | (v >> 4));
+    str_value << std::fixed << std::setprecision(2) << val;
   }
   str_value << "],";
   
@@ -430,7 +439,8 @@ AltosBasePacket *make_altus_packet(
         new_channel_freq
       );
     }
-    case 0x09: {
+    case 0x09:
+    case 0x15: {
       return new AltosTelemetryMegaData(
         new_message,
         new_channel_freq

@@ -1,2 +1,7 @@
 build
 data.cfile
+public/*
+!public/.gitkeep
+!public/tiles
+public/tiles/*
+!public/tiles/.gitkeep

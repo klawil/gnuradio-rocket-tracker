@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"rocket_server/http"
 	"rocket_server/socket"
 	"sync"
 
@@ -11,11 +12,12 @@ import (
 )
 
 const (
-	host     = "localhost"
-	port     = 5432
-	user     = "rockettracker"
-	password = "rockettracker"
-	dbname   = "rockettracker"
+	host      = "localhost"
+	port      = 5432
+	user      = "rockettracker"
+	password  = "rockettracker"
+	dbname    = "rockettracker"
+	staticDir = "../public"
 )
 
 func main() {
@@ -40,7 +42,8 @@ func main() {
 
 	// Open and start the socket server
 	var wg sync.WaitGroup
-	wg.Add(1)
+	wg.Add(2)
 	go socket.Main(db, &wg)
+	go http.Main(db, staticDir, &wg)
 	wg.Wait()
 }

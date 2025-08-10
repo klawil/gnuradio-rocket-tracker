@@ -63,6 +63,15 @@ double AltosBasePacket::tele_mini_3_pyro_voltage(int16_t v) {
   return 3.3 * (v / 4095.0) * (100.0 + 27.0) / 27.0;
 }
 
+double AltosBasePacket::tele_gps_voltage(int16_t v) {
+  double supply = 3.3;
+  if (v > 4095) {
+    return v / 32767.0 * supply * (5.6 + 10.0) / 10.0;
+  } else {
+    return v / 4095.0 * supply * (5.6 + 10.0) / 10.0;
+  }
+}
+
 AltosTelemetrySensor::AltosTelemetrySensor(
   uint8_t new_message[BYTES_PER_MESSAGE],
   double new_channel_freq
@@ -87,8 +96,8 @@ AltosTelemetrySensor::AltosTelemetrySensor(
   }
 
   str_value << "\"height\":" << std::fixed << std::setprecision(0) << int16(22) << ",";
-  str_value << "\"speed\":" << std::fixed << std::setprecision(0) << int16(20) << ",";
-  str_value << "\"accel\":" << std::fixed << std::setprecision(0) << int16(18) << "}";
+  str_value << "\"speed\":" << std::fixed << std::setprecision(2) << (int16(20) / 16.0) << ",";
+  str_value << "\"accel2\":" << std::fixed << std::setprecision(2) << (int16(18) / 16.0) << "}";
 }
 
 AltosTelemetryConfiguration::AltosTelemetryConfiguration(
@@ -99,20 +108,27 @@ AltosTelemetryConfiguration::AltosTelemetryConfiguration(
   uint16_t flight = uint16(6);
   uint8_t config_major = uint8(8);
   uint8_t config_minor = uint8(9);
-  uint16_t apogee_delay = uint16(10);
+  double apogee_delay = uint16(10) / 100.0;
   uint16_t main_deploy = uint16(12);
   uint16_t v_batt = uint16(10);
   uint16_t flight_log_max = uint16(14);
   std::string callsign = string(16, 8);
   std::string version = string(24, 8);
 
+  if (device_type == 0x25) {
+    // TeleGPS so no apo/main deploy
+    double v_batt_parsed = tele_gps_voltage(v_batt);
+    str_value << "\"v_batt\":" << std::fixed << std::setprecision(2) << v_batt_parsed << ",";
+  } else {
+    // All of the other devices
+    str_value << "\"apo_delay\":" << std::fixed << std::setprecision(1) << apogee_delay << ",";
+    str_value << "\"main_deploy\":" << std::fixed << std::setprecision(0) << main_deploy << ",";
+  }
+
   str_value << "\"device\":" << std::fixed << std::setprecision(0) << +device_type << ",";
   str_value << "\"flight\":" << std::fixed << std::setprecision(0) << flight << ",";
   str_value << "\"conf_maj\":" << std::fixed << std::setprecision(0) << +config_major << ",";
   str_value << "\"conf_min\":" << std::fixed << std::setprecision(0) << +config_minor << ",";
-  str_value << "\"apo_delay\":" << std::fixed << std::setprecision(0) << apogee_delay << ",";
-  str_value << "\"main_deploy\":" << std::fixed << std::setprecision(0) << main_deploy << ",";
-  str_value << "\"v_batt\":" << std::fixed << std::setprecision(0) << v_batt << ",";
   str_value << "\"max_log\":" << std::fixed << std::setprecision(0) << flight_log_max << ",";
   str_value << "\"callsign\":\"" << callsign << "\",";
   str_value << "\"version\":\"" << version << "\"}";
@@ -131,19 +147,19 @@ AltosTelemetryLocation::AltosTelemetryLocation(
   if (mode) {
     altitude = (int8(31) << 16) | uint16(6);
   }
-  uint32_t latitude = uint32(8);
-  uint32_t longitude = uint32(12);
-  uint8_t year = uint8(16);
+  float latitude = int32(8) * 1e-7;
+  float longitude = int32(12) * 1e-7;
+  uint16_t year = uint8(16) + 2000;
   uint8_t month = uint8(17);
   uint8_t day = uint8(18);
   uint8_t hour = uint8(19);
   uint8_t minute = uint8(20);
   uint8_t second = uint8(21);
-  uint8_t pdop = uint8(22);
-  uint8_t hdop = uint8(23);
-  uint8_t vdop = uint8(24);
-  uint16_t ground_speed = uint16(26);
-  int16_t climb_rate = int16(28);
+  float pdop = uint8(22) / 10.0;
+  float hdop = uint8(23) / 10.0;
+  float vdop = uint8(24) / 10.0;
+  float ground_speed = uint16(26) * 1.0e-2;
+  float climb_rate = int16(28) * 1.0e-2;
   uint8_t course = uint8(30);
 
   str_value << "\"nsat\":" << std::fixed << std::setprecision(0) << +nsat << ",";
@@ -151,19 +167,19 @@ AltosTelemetryLocation::AltosTelemetryLocation(
   str_value << "\"connected\":" << (connected ? "true" : "false") << ",";
   str_value << "\"mode\":" << std::fixed << std::setprecision(0) << +mode << ",";
   str_value << "\"altitude\":" << std::fixed << std::setprecision(0) << altitude << ",";
-  str_value << "\"latitude\":" << std::fixed << std::setprecision(0) << latitude << ",";
-  str_value << "\"longitude\":" << std::fixed << std::setprecision(0) << longitude << ",";
-  str_value << "\"year\":" << std::fixed << std::setprecision(0) << +year << ",";
+  str_value << "\"latitude\":" << std::fixed << std::setprecision(6) << latitude << ",";
+  str_value << "\"longitude\":" << std::fixed << std::setprecision(6) << longitude << ",";
+  str_value << "\"year\":" << std::fixed << std::setprecision(0) << year << ",";
   str_value << "\"month\":" << std::fixed << std::setprecision(0) << +month << ",";
   str_value << "\"day\":" << std::fixed << std::setprecision(0) << +day << ",";
   str_value << "\"hour\":" << std::fixed << std::setprecision(0) << +hour << ",";
   str_value << "\"minute\":" << std::fixed << std::setprecision(0) << +minute << ",";
   str_value << "\"second\":" << std::fixed << std::setprecision(0) << +second << ",";
-  str_value << "\"pdop\":" << std::fixed << std::setprecision(0) << +pdop << ",";
-  str_value << "\"hdop\":" << std::fixed << std::setprecision(0) << +hdop << ",";
-  str_value << "\"vdop\":" << std::fixed << std::setprecision(0) << +vdop << ",";
-  str_value << "\"ground_speed\":" << std::fixed << std::setprecision(0) << ground_speed << ",";
-  str_value << "\"climb_rate\":" << std::fixed << std::setprecision(0) << climb_rate << ",";
+  str_value << "\"pdop\":" << std::fixed << std::setprecision(1) << pdop << ",";
+  str_value << "\"hdop\":" << std::fixed << std::setprecision(1) << hdop << ",";
+  str_value << "\"vdop\":" << std::fixed << std::setprecision(1) << vdop << ",";
+  str_value << "\"ground_speed\":" << std::fixed << std::setprecision(2) << ground_speed << ",";
+  str_value << "\"climb_rate\":" << std::fixed << std::setprecision(2) << climb_rate << ",";
   str_value << "\"course\":" << std::fixed << std::setprecision(0) << +course << "}";
 }
 
@@ -233,7 +249,7 @@ AltosTelemetryMegaSensor::AltosTelemetryMegaSensor(
   int8_t orient = int8(5);
   int16_t accel = int16(6);
   int16_t pres = int32(8);
-  float temp = int16(12) / 100.0;
+  double temp = int16(12) / 100.0;
 
   str_value << "\"accel_across\":" << std::fixed << std::setprecision(0) << accel_across << ",";
   str_value << "\"accel_along\":" << std::fixed << std::setprecision(0) << accel_along << ",";

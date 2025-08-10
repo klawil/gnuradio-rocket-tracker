@@ -31,7 +31,7 @@ class AltosBasePacket {
     }
 
     int32_t int32(int i) {
-      return int(uint32(i));
+      return int32_t(uint32(i));
     }
 
     std::string string(int i, int l) {
@@ -63,6 +63,7 @@ class AltosBasePacket {
     double tele_mini_2_voltage(int16_t v);
     double tele_mini_3_battery_voltage(int16_t v);
     double tele_mini_3_pyro_voltage(int16_t v);
+    double tele_gps_voltage(int16_t v);
 
     std::stringstream str_value;
     std::string to_string();

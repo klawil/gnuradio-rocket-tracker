@@ -1,5 +1,5 @@
 build
-data.cfile
+*.cfile
 public/*
 !public/.gitkeep
 !public/tiles

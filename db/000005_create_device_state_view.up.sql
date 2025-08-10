@@ -1,17 +1,26 @@
 CREATE OR REPLACE VIEW public.devices_state AS SELECT
-    devices.name,
-    devices.device_type,
-    packets_parsed.*
+	devices.name as device_name,
+	devices.device_type,
+	current_state.device_serial,
+	current_state.max_created_at,
+	current_state.combined_state
 FROM (
-    SELECT DISTINCT ON (packet_json->'type', packet_json->'serial')
-        created_at,
-        CAST(packet_json->'type' AS smallint) AS "type",
-        CAST(packet_json->'serial' AS integer) AS serial,
-        packet_json
-    FROM public.packets
-    ORDER BY packet_json->'type', packet_json->'serial', packet_json->'rtime' DESC, packet_json->'time' DESC
-) packets_parsed
-LEFT JOIN public.devices ON packets_parsed.serial = devices.serial;
+	SELECT
+		device_serial,
+		MAX(created_at) as max_created_at,
+		jsonb_object_agg(packet_type, packet_json) as combined_state
+	FROM (
+	SELECT DISTINCT ON (packet_json->'serial', packet_json->'type')
+		CAST(packet_json->'serial' as integer) as device_serial,
+		CAST(packet_json->'type' as smallint) as packet_type,
+		packet_json,
+		created_at
+	FROM public.packets
+	ORDER BY packet_json->'serial', packet_json->'type', packet_json->'rtime' DESC, packet_json->'time' DESC
+	) agg
+	GROUP BY agg.device_serial
+) current_state
+	LEFT JOIN public.devices ON current_state.device_serial = devices.serial;
 ALTER VIEW public.devices_state OWNER TO william;
 GRANT ALL ON public.devices_state TO rockettracker;
 GRANT ALL ON public.devices_state TO william;

@@ -22,9 +22,9 @@ type BaseApiResponse struct {
 	Str     []string
 }
 
-type RocketApiResponse struct {
+type DevicesApiResponse struct {
 	BaseApiResponse
-	Data  []rocketPacket
+	Data  []devicePacket
 	Count int
 }
 
@@ -237,7 +237,7 @@ func downloadMapApi(c *fiber.Ctx) error {
 	})
 }
 
-type rocketPacket struct {
+type devicePacket struct {
 	DeviceName    sql.NullString
 	DeviceType    sql.NullInt16
 	DeviceSerial  uint16
@@ -245,41 +245,40 @@ type rocketPacket struct {
 	CombinedState string
 }
 
-func getRockets(c *fiber.Ctx) error {
-	var rockets []rocketPacket
+func getDevices(c *fiber.Ctx) error {
+	var devices []devicePacket
 	var count int = 0
 
 	rows, err := db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state #>> '{}' FROM devices_state WHERE max_created_at >= timezone('utc', now()) - INTERVAL '12 days'")
-	// rows, err := db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state FROM devices_state WHERE max_created_at >= timezone('utc', now()) - INTERVAL '12 days'")
 	if err != nil {
-		log.WithError(err).Error("Failed to query rockets")
+		log.WithError(err).Error("Failed to query devices")
 		return sendError(c, err)
 	}
 
 	defer rows.Close()
 	for rows.Next() {
-		rocket := rocketPacket{}
+		device := devicePacket{}
 		err = rows.Scan(
-			&rocket.DeviceName,
-			&rocket.DeviceType,
-			&rocket.DeviceSerial,
-			&rocket.MaxCreatedAt,
-			&rocket.CombinedState,
+			&device.DeviceName,
+			&device.DeviceType,
+			&device.DeviceSerial,
+			&device.MaxCreatedAt,
+			&device.CombinedState,
 		)
 		if err != nil {
-			log.WithError(err).Error("Failed to get rocket row")
+			log.WithError(err).Error("Failed to get device row")
 			continue
 		}
 
 		count++
-		rockets = append(rockets, rocket)
+		devices = append(devices, device)
 	}
 
-	return c.JSON(RocketApiResponse{
+	return c.JSON(DevicesApiResponse{
 		BaseApiResponse: BaseApiResponse{
 			Success: true,
 		},
-		Data:  rockets,
+		Data:  devices,
 		Count: count,
 	})
 }
@@ -291,7 +290,7 @@ func Main(dbConn *sql.DB, staticDir string, wg *sync.WaitGroup) {
 	app := fiber.New()
 
 	// app.Get("/api/clients", getClients)
-	app.Get("/api/rockets", getRockets)
+	app.Get("/api/devices", getDevices)
 	app.Get("/api/map/download", downloadMapApi)
 
 	app.Get("/js/service_worker.js", func(c *fiber.Ctx) error {

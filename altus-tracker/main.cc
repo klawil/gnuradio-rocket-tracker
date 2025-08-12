@@ -30,7 +30,8 @@
 #include "altus_channel.h"
 #include "altus_packet.h"
 
-int socketConn = -1;
+int socket_conn = -1;
+bool socket_connected = false;
 
 namespace po = boost::program_options;
 
@@ -78,78 +79,53 @@ void signal_handler(int signal) {
 }
 
 void open_socket(std::string host, uint16_t port) {
+  // Check for already connected socket
+  if (socket_connected) {
+    std::cout << "Tried to open already open socket" << std::endl;
+    return;
+  }
+
   // Open the socket (synchronously)
-  if ((socketConn = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+  if ((socket_conn = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     std::cout << "Failed to create socket: " << strerror(errno) << std::endl;
     return;
   }
 
   // Specify the address
-  struct sockaddr_in serverAddress;
-  serverAddress.sin_family = AF_INET;
-  serverAddress.sin_port = htons(port);
-  if (inet_pton(AF_INET, host.c_str(), &serverAddress.sin_addr) <= 0) {
+  struct sockaddr_in server_address;
+  server_address.sin_family = AF_INET;
+  server_address.sin_port = htons(port);
+  if (inet_pton(AF_INET, host.c_str(), &server_address.sin_addr) <= 0) {
     std::cout << "Failed to set socket address to " << host << ": " << strerror(errno) << std::endl;
-    close(socketConn);
-    socketConn = -1;
+    close(socket_conn);
+    socket_conn = -1;
+    return;
+  }
+
+  // Make the socket async
+  int flags = fcntl(socket_conn, F_GETFL, 0);
+  if (flags == -1) {
+    flags = 0;
+  }
+  flags = (flags | O_NONBLOCK);
+  if (fcntl(socket_conn, F_SETFL, flags) != 0) {
+    std::cout << "Failed to set socket flags: " << strerror(errno) << std::endl;
+    close(socket_conn);
+    socket_conn = -1;
     return;
   }
 
   // Send the connection request
   if (
-    connect(socketConn, (struct sockaddr*)&serverAddress, sizeof(serverAddress)) < 0 &&
+    connect(socket_conn, (struct sockaddr*)&server_address, sizeof(server_address)) < 0 &&
     errno != EINPROGRESS
   ) {
     std::cout << "Failed to open socket: " << strerror(errno) << std::endl;
-    close(socketConn);
-    socketConn = -1;
+    close(socket_conn);
+    socket_conn = -1;
     return;
   } else {
     std::cout << "Socket opening in progress" << std::endl;
-  }
-
-  static char init_packet_buffer[2] = { 0 };
-  bool is_connected = false;
-  bool keep_loop = true;
-  while (true) {
-    // Read some bytes
-    ssize_t valread;
-    bool is_break = false;
-    while ((valread = read(socketConn, &init_packet_buffer[0], 2)) != 0) {
-      std::cout << "Received initial bytes: " << init_packet_buffer[0] << init_packet_buffer[1] << std::endl;
-      is_connected = true;
-      is_break = true;
-      break;
-    }
-    if (is_break) {
-      break;
-    }
-
-    // Check for errors
-    if (
-      valread < 0 &&
-      errno != EWOULDBLOCK &&
-      errno != EAGAIN &&
-      errno != ECONNREFUSED
-    ) {
-      std::cout << "Failed to read from socket: " << strerror(errno) << std::endl;
-      break;
-    } else if (
-      errno > 0 &&
-      errno != EWOULDBLOCK &&
-      errno != EAGAIN
-    ) {
-      std::cout << "Failed to read from socket(2): " << strerror(errno) << std::endl;
-      break;
-    }
-  }
-
-  if (is_connected) {
-    std::cout << "Socket open at " << host << ":" << port << std::endl;
-  } else {
-    std::cout << "Socket failed to open" << std::endl;
-    close(socketConn);
-    socketConn = -1;
   }
 }
 
@@ -159,8 +135,29 @@ std::chrono::milliseconds last_message = duration_cast< std::chrono::millisecond
 const uint32_t min_ping_wait = 5000; // in ms
 const std::string ping_message = "ping\n";
 
-uint32_t total_sent = 0;
-uint32_t times_sent = 0;
+std::stringstream message_in;
+std::vector<std::string> outgoing_messages;
+std::mutex outgoing_messages_mutex;
+void handle_message() {
+  std::cout << "New message in: " << message_in.str() << std::endl;
+
+  // Pull out the message and clear the buffer
+  std::string msg = message_in.str();
+  message_in.str(std::string());
+
+  if (msg == "!!") {
+    std::cout << "Init command" << std::endl;
+    outgoing_messages_mutex.lock();
+    for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
+      std::stringstream msg;
+      msg << "c:" << std::fixed << std::setprecision(0) << *c << "\n";
+      std::cout << "Msg out: " << msg.str();
+      outgoing_messages.push_back(msg.str());
+    }
+    outgoing_messages_mutex.unlock();
+  }
+}
+
 void process_queue(
   std::string socket_host,
   uint16_t socket_port
@@ -169,6 +166,33 @@ void process_queue(
   open_socket(socket_host, socket_port);
 
   while (running) {
+    // Check for incoming messages
+    if (socket_conn != -1) {
+      ssize_t valread;
+      static char buffer[1] = { 0 };
+      while ((valread = read(socket_conn, &buffer[0], 1)) > 0) {
+        socket_connected = true;
+
+        if (buffer[0] == '\n') {
+          handle_message();
+        } else {
+          message_in << buffer[0];
+          std::cout << "Received: " << buffer[0] << std::endl;
+        }
+      }
+
+      // Check for socket errors
+      if (
+        valread < 0 &&
+        errno != EWOULDBLOCK &&
+        errno != EAGAIN
+      ) {
+        std::cerr << "Failed to read from socket: " << strerror(errno) << std::endl;
+        socket_conn = -1;
+        socket_connected = false;
+      }
+    }
+
     bool sent_message = false;
     uint16_t packets_sent = 0;
     std::stringstream msg_value;
@@ -183,15 +207,20 @@ void process_queue(
       chan->packet_queue.clear();
       chan->packet_queue_mutex.unlock();
     }
+    outgoing_messages_mutex.lock();
+    for (std::vector<std::string>::iterator msg_ptr = outgoing_messages.begin(); msg_ptr != outgoing_messages.end(); msg_ptr++) {
+      std::string msg = *msg_ptr;
+      msg_value << msg;
+      packets_sent++;
+    }
+    outgoing_messages.clear();
+    outgoing_messages_mutex.unlock();
     if (packets_sent > 0) {
       // Write to socket (if indicated)
-      if (socketConn != -1) {
+      if (socket_connected) {
         std::string msg = msg_value.str();
-        write(socketConn, msg.c_str(), msg.length());
-        total_sent += packets_sent;
-        times_sent++;
+        write(socket_conn, msg.c_str(), msg.length());
         sent_message = true;
-        // std::cout << "Packets sent: " << packets_sent << " (" << total_sent << " in " << times_sent << " batches)" << std::endl;
       }
     }
     if (sent_message) {
@@ -204,11 +233,9 @@ void process_queue(
       );
       if (uint32_t(now.count() - last_message.count()) >= min_ping_wait) {
         std::cout << "Ping after " << uint32_t(now.count() - last_message.count()) << std::endl;
-        if (socketConn != -1) {
-          total_sent += 1;
-          times_sent++;
-          write(socketConn, ping_message.c_str(), ping_message.length());
-        } else {
+        if (socket_connected) {
+          write(socket_conn, ping_message.c_str(), ping_message.length());
+        } else if (socket_conn == -1) {
           open_socket(socket_host, socket_port);
         }
         last_message = now;
@@ -219,18 +246,18 @@ void process_queue(
     std::this_thread::sleep_for(std::chrono::milliseconds(100));
   }
 
-  if (socketConn != -1) {
-    close(socketConn);
+  if (socket_conn != -1) {
+    close(socket_conn);
   }
 }
 
 void add_channel(uint32_t channel_freq) {
-  // // Check to see if the channel already exists
-  // for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
-  //   if (*c == channel_freq) {
-  //     return;
-  //   }
-  // }
+  // Check to see if the channel already exists
+  for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
+    if (*c == channel_freq) {
+      return;
+    }
+  }
 
   // Add the channel
   tb->lock();
@@ -243,6 +270,16 @@ void add_channel(uint32_t channel_freq) {
   tb->connect(source, 0, channel, 0);
   channel_blocks.push_back(channel);
   tb->unlock();
+
+  // Add the channel message
+  if (socket_connected) {
+    std::stringstream msg;
+    msg << "c:" << channel_freq << "\n";
+
+    outgoing_messages_mutex.lock();
+    outgoing_messages.push_back(msg.str());
+    outgoing_messages_mutex.unlock();
+  }
 }
 
 void rm_channel(uint32_t channel_freq) {
@@ -274,6 +311,16 @@ void rm_channel(uint32_t channel_freq) {
       channels.erase(channels.begin() + ci);
       break;
     }
+  }
+
+  // Add the channel message
+  if (socket_connected) {
+    std::stringstream msg;
+    msg << "r:" << channel_freq << "\n";
+
+    outgoing_messages_mutex.lock();
+    outgoing_messages.push_back(msg.str());
+    outgoing_messages_mutex.unlock();
   }
   tb->unlock();
 }
@@ -352,18 +399,16 @@ int main(int argc, char **argv) {
 
   // Generate all of the channel frequencies
   add_channel(434550000); // Ch 01
-  add_channel(434550000); // Ch 02
-  add_channel(434550000); // Ch 03
-  add_channel(434550000); // Ch 04
-  add_channel(434550000); // Ch 05
-  add_channel(434550000); // Ch 06
-  add_channel(434550000); // Ch 07
-  // add_channel(434550000); // Ch 08
-  // add_channel(434550000); // Ch 09
-  // add_channel(434550000); // Ch 10
+  add_channel(434650000); // Ch 02
+  add_channel(434750000); // Ch 03
+  add_channel(434850000); // Ch 04
+  add_channel(434950000); // Ch 05
+  add_channel(435050000); // Ch 06
+  add_channel(435150000); // Ch 07
+  add_channel(435250000); // Ch 08
+  add_channel(435350000); // Ch 09
+  add_channel(435450000); // Ch 10
 
-  add_channel(436550000); // Wm
-  add_channel(436550000); // Wm
   add_channel(436550000); // Wm
 
   tb->start();

@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"net"
 	"rocket_server/model"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,7 +20,6 @@ type Source struct {
 	Type   string
 	Source string
 	Id     string
-	Conn   net.Conn
 }
 
 const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
@@ -50,7 +51,14 @@ func (s *Source) Delete(db *sql.DB) {
 		"UPDATE sources SET deleted_at = now() WHERE id = $1",
 		s.Id,
 	)
+	if err != nil {
+		log.WithField("source", s).WithError(err).Error("Failed to save source")
+	}
 
+	_, err = db.Exec(
+		"UPDATE channels SET deleted_at = now() WHERE source_id = $1 AND deleted_at IS NULL",
+		s.Id,
+	)
 	if err != nil {
 		log.WithField("source", s).WithError(err).Error("Failed to save source")
 	}
@@ -68,6 +76,36 @@ func parseLine(message string, db *sql.DB, source Source) {
 	// Check for a ping
 	if message == "ping\n" {
 		baseLog.Debug("Ping received")
+		return
+	}
+
+	// Check for a channel add / remove
+	if message[0] == 'c' || message[0] == 'r' {
+		split := strings.Split(message, ":")
+		baseLog = baseLog.WithField("split", split)
+		freq := split[1][0 : len(split[1])-1]
+		baseLog.Info("channel message received")
+
+		chFreq, err := strconv.Atoi(freq)
+		if err != nil {
+			log.WithError(err).Error("Failed to convert frequency to int")
+		}
+		if message[0] == 'c' {
+			_, err = db.Exec(
+				"INSERT INTO channels (source_id, frequency) VALUES ($1, $2)",
+				source.Id,
+				chFreq,
+			)
+		} else {
+			_, err = db.Exec(
+				"UPDATE channels SET deleted_at = NOW() WHERE source_id = $1 AND frequency = $2 AND deleted_at IS NULL",
+				source.Id,
+				chFreq,
+			)
+		}
+		if err != nil {
+			baseLog.WithError(err).Error("Failed to update channel record")
+		}
 		return
 	}
 
@@ -103,7 +141,7 @@ func handleSource(conn net.Conn, db *sql.DB) {
 		source.Delete(db)
 	}()
 
-	_, err := conn.Write([]byte("!!"))
+	_, err := conn.Write([]byte("!!\n"))
 	if err != nil {
 		baseLog.WithError(err).Error("Error writing to source")
 		conn.Close()
@@ -136,6 +174,9 @@ func handleSource(conn net.Conn, db *sql.DB) {
 
 	baseLog.WithField("rcv", packetsReceived).Info("Total received")
 }
+
+var SendClientCommand = make(chan model.ClientCommand)
+var ReceiveNewPackets = make(chan model.BasePacket)
 
 func Main(db *sql.DB, wg *sync.WaitGroup) {
 	defer wg.Done()

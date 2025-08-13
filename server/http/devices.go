@@ -17,6 +17,12 @@ type devicePacket struct {
 	CombinedState string
 }
 
+type listDevicesApiResponse struct {
+	BaseApiResponse
+	Devices []devicePacket
+	Count   int
+}
+
 func listDevices(c *fiber.Ctx) error {
 	var devices []devicePacket
 	var count int = 0
@@ -52,12 +58,12 @@ func listDevices(c *fiber.Ctx) error {
 		devices = append(devices, device)
 	}
 
-	return c.JSON(DevicesApiResponse{
+	return c.JSON(listDevicesApiResponse{
 		BaseApiResponse: BaseApiResponse{
 			Success: true,
 		},
-		Data:  devices,
-		Count: count,
+		Devices: devices,
+		Count:   count,
 	})
 }
 

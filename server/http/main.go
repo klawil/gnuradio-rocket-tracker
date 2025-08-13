@@ -21,12 +21,6 @@ type BaseApiResponse struct {
 	Msg     string
 }
 
-type DevicesApiResponse struct {
-	BaseApiResponse
-	Data  []devicePacket
-	Count int
-}
-
 func sendError(c *fiber.Ctx, e error) error {
 	c.JSON(BaseApiResponse{
 		Success: false,
@@ -251,6 +245,12 @@ func Main(dbConn *sql.DB, staticDir string, wg *sync.WaitGroup) {
 	app.Get("/api/devices/:id", getDevice)
 	app.Delete("/api/devices/:id", deleteDevice)
 
+	// Channels API
+	app.Get("/api/channels", listDevices)
+	app.Patch("/api/channels/:id", patchDevice)
+	app.Get("/api/channels/:id", getDevice)
+	app.Delete("/api/channels/:id", deleteDevice)
+
 	app.Get("/js/service_worker.js", func(c *fiber.Ctx) error {
 		c.Response().Header.Set("Service-Worker-Allowed", "/")
 		return c.Next()
@@ -279,7 +279,37 @@ func Main(dbConn *sql.DB, staticDir string, wg *sync.WaitGroup) {
 
 	// Tiles that haven't been loaded (any that were loaded will hit static above)
 	app.Use("/tiles", func(ctx *fiber.Ctx) error {
-		return ctx.Redirect("/icons/not-loaded-map.jpg", 302)
+		imageIds := strings.Replace(
+			strings.Replace(
+				ctx.Path(),
+				"/tiles/",
+				"",
+				-1,
+			),
+			".png",
+			"",
+			-1,
+		)
+		imageIdsSplit := strings.Split(imageIds, "-")
+		url := fmt.Sprintf(
+			"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/%v/%v/%v.jpg",
+			imageIdsSplit[0],
+			imageIdsSplit[1],
+			imageIdsSplit[2],
+		)
+		err := proxy.DoTimeout(
+			ctx,
+			url,
+			time.Second*2,
+		)
+		if err != nil {
+			log.WithError(err).Error("Error forwarding request")
+			return ctx.Redirect("/icons/not-loaded-map.jpg", 302)
+		} else {
+			return nil
+		}
+		// return nil
+		// return ctx.Redirect("/icons/not-loaded-map.jpg", 302)
 	})
 
 	err := app.Listen(":8080")

@@ -16,6 +16,8 @@
     "react-bootstrap": "^2.10.10",
     "react-dom": "19.1.0",
     "react-leaflet": "^5.0.0",
+    "swagger-themes": "^1.4.3",
+    "swagger-ui-dist": "^5.27.1",
     "ts-oas": "^0.5.3"
   },
   "devDependencies": {
@@ -24,6 +26,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/swagger-ui-dist": "^3.30.6",
     "eslint": "^9",
     "eslint-config-next": "15.4.6",
     "typescript": "^5"

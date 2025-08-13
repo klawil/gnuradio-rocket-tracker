@@ -84,11 +84,11 @@ export function parseDeviceState(s: DeviceState): ParsedDeviceState {
 }
 
 /**
- * Query DTR events
- * @summary Query DTR events
- * @tags Events
+ * List
+ * @summary List devices (by default in the past 12 hours)
+ * @tags Devices
  */
-export interface ListDevicesApi {
+export type ListDevicesApi = {
   path: '/api/devices/';
   method: 'GET';
   query: {

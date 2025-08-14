@@ -10,13 +10,13 @@ FROM (
 		MAX(created_at) as max_created_at,
 		jsonb_object_agg(packet_type, packet_json) as combined_state
 	FROM (
-	SELECT DISTINCT ON (packet_json->'serial', packet_json->'type')
-		CAST(packet_json->'serial' as integer) as device_serial,
-		CAST(packet_json->'type' as smallint) as packet_type,
+	SELECT DISTINCT ON (packet_json->'Serial', packet_json->'Type')
+		CAST(packet_json->'Serial' as integer) as device_serial,
+		CAST(packet_json->'Type' as smallint) as packet_type,
 		packet_json,
 		created_at
 	FROM public.packets
-	ORDER BY packet_json->'serial', packet_json->'type', packet_json->'rtime' DESC, packet_json->'time' DESC
+	ORDER BY packet_json->'Serial', packet_json->'Type', packet_json->'RTime' DESC, packet_json->'Time' DESC
 	) agg
 	GROUP BY agg.device_serial
 ) current_state

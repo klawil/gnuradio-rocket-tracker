@@ -22,12 +22,12 @@ AltosBasePacket::AltosBasePacket(
     std::chrono::system_clock::now().time_since_epoch()
   );
 
-  str_value << "{\"serial\":" << std::fixed << std::setprecision(0) << serial << ",";
-  str_value << "\"freq\":" << std::fixed << std::setprecision(3) << (channel_freq / 1000000) << ",";
-  str_value << "\"type\":" << +type << ",";
-  str_value << "\"rtime\":" << std::fixed << std::setprecision(0) << rockettime << ",";
-  str_value << "\"time\":" << std::fixed << std::setprecision(0) << ms.count() << ",";
-  str_value << "\"raw\":\"" << std::hex;
+  str_value << "{\"Serial\":" << std::fixed << std::setprecision(0) << serial << ",";
+  str_value << "\"Freq\":" << std::fixed << std::setprecision(3) << (channel_freq / 1000000) << ",";
+  str_value << "\"Type\":" << +type << ",";
+  str_value << "\"RTime\":" << std::fixed << std::setprecision(0) << rockettime << ",";
+  str_value << "\"Time\":" << std::fixed << std::setprecision(0) << ms.count() << ",";
+  str_value << "\"Raw\":\"" << std::hex;
   for (uint8_t i = 0; i < BYTES_PER_MESSAGE; i++) {
     str_value << std::setw(2) << std::setfill('0') << +message[i];
   }
@@ -77,27 +77,27 @@ AltosTelemetrySensor::AltosTelemetrySensor(
   double new_channel_freq
 ) : AltosBasePacket(new_message, new_channel_freq) {
   if (type == 0x01) {
-    str_value << "\"ground_accel\":" << std::fixed << std::setprecision(0) << int16(24) << ",";
-    str_value << "\"accel_plus_g\":" << std::fixed << std::setprecision(0) << int16(28) << ",";
-    str_value << "\"accel_minus_g\":" << std::fixed << std::setprecision(0) << int16(30) << ",";
-    str_value << "\"accel\":" << std::fixed << std::setprecision(0) << int16(6) << ",";
+    str_value << "\"GroundAccel\":" << std::fixed << std::setprecision(0) << int16(24) << ",";
+    str_value << "\"AccelPlusG\":" << std::fixed << std::setprecision(0) << int16(28) << ",";
+    str_value << "\"AccelMinusG\":" << std::fixed << std::setprecision(0) << int16(30) << ",";
+    str_value << "\"Accelerometer\":" << std::fixed << std::setprecision(0) << int16(6) << ",";
   }
   double ground_pressure = ((int16(24) / 16.0) / 2047.0 + 0.095) / 0.009 * 1000.0;
   double pressure = ((int16(8) / 16.0) / 2047.0 + 0.095) / 0.009 * 1000.0;
-  str_value << "\"grd_press\":" << std::fixed << std::setprecision(0) << ground_pressure << ",";
-  str_value << "\"press\":" << std::fixed << std::setprecision(0) << pressure << ",";
+  str_value << "\"GrdPress\":" << std::fixed << std::setprecision(0) << ground_pressure << ",";
+  str_value << "\"Press\":" << std::fixed << std::setprecision(0) << pressure << ",";
   double temp = (int16(10) - 19791.268) / 32728.0 * 1.25 / 0.00247;
-  str_value << "\"temp\":" << std::fixed << std::setprecision(0) << temp << ",";
+  str_value << "\"Temp\":" << std::fixed << std::setprecision(0) << temp << ",";
   if (type == 0x01 || type == 0x02) {
     double apogee = int16(14) / 32767 * 15.0;
     double main = int16(16) / 32767 * 15.0;
-    str_value << "\"apogee\":" << std::fixed << std::setprecision(0) << apogee << ",";
-    str_value << "\"main\":" << std::fixed << std::setprecision(0) << main << ",";
+    str_value << "\"ApogeeVolts\":" << std::fixed << std::setprecision(0) << apogee << ",";
+    str_value << "\"MainVolts\":" << std::fixed << std::setprecision(0) << main << ",";
   }
 
-  str_value << "\"height\":" << std::fixed << std::setprecision(0) << int16(22) << ",";
-  str_value << "\"speed\":" << std::fixed << std::setprecision(2) << (int16(20) / 16.0) << ",";
-  str_value << "\"accel2\":" << std::fixed << std::setprecision(2) << (int16(18) / 16.0) << "}";
+  str_value << "\"Height\":" << std::fixed << std::setprecision(0) << int16(22) << ",";
+  str_value << "\"Speed\":" << std::fixed << std::setprecision(2) << (int16(20) / 16.0) << ",";
+  str_value << "\"Accel\":" << std::fixed << std::setprecision(2) << (int16(18) / 16.0) << "}";
 }
 
 AltosTelemetryConfiguration::AltosTelemetryConfiguration(
@@ -118,20 +118,20 @@ AltosTelemetryConfiguration::AltosTelemetryConfiguration(
   if (device_type == 0x25) {
     // TeleGPS so no apo/main deploy
     double v_batt_parsed = tele_gps_voltage(v_batt);
-    str_value << "\"v_batt\":" << std::fixed << std::setprecision(2) << v_batt_parsed << ",";
+    str_value << "\"BattV\":" << std::fixed << std::setprecision(2) << v_batt_parsed << ",";
   } else {
     // All of the other devices
-    str_value << "\"apo_delay\":" << std::fixed << std::setprecision(1) << apogee_delay << ",";
-    str_value << "\"main_deploy\":" << std::fixed << std::setprecision(0) << main_deploy << ",";
+    str_value << "\"ApoDelay\":" << std::fixed << std::setprecision(1) << apogee_delay << ",";
+    str_value << "\"MainAlt\":" << std::fixed << std::setprecision(0) << main_deploy << ",";
   }
 
-  str_value << "\"device\":" << std::fixed << std::setprecision(0) << +device_type << ",";
-  str_value << "\"flight\":" << std::fixed << std::setprecision(0) << flight << ",";
-  str_value << "\"conf_maj\":" << std::fixed << std::setprecision(0) << +config_major << ",";
-  str_value << "\"conf_min\":" << std::fixed << std::setprecision(0) << +config_minor << ",";
-  str_value << "\"max_log\":" << std::fixed << std::setprecision(0) << flight_log_max << ",";
-  str_value << "\"callsign\":\"" << callsign << "\",";
-  str_value << "\"version\":\"" << version << "\"}";
+  str_value << "\"Device\":" << std::fixed << std::setprecision(0) << +device_type << ",";
+  str_value << "\"Flight\":" << std::fixed << std::setprecision(0) << flight << ",";
+  str_value << "\"ConfMaj\":" << std::fixed << std::setprecision(0) << +config_major << ",";
+  str_value << "\"ConfMin\":" << std::fixed << std::setprecision(0) << +config_minor << ",";
+  str_value << "\"MaxLog\":" << std::fixed << std::setprecision(0) << flight_log_max << ",";
+  str_value << "\"Callsign\":\"" << callsign << "\",";
+  str_value << "\"Version\":\"" << version << "\"}";
 }
 
 AltosTelemetryLocation::AltosTelemetryLocation(
@@ -162,25 +162,25 @@ AltosTelemetryLocation::AltosTelemetryLocation(
   float climb_rate = int16(28) * 1.0e-2;
   uint8_t course = uint8(30);
 
-  str_value << "\"nsat\":" << std::fixed << std::setprecision(0) << +nsat << ",";
-  str_value << "\"locked\":" << (locked ? "true" : "false") << ",";
-  str_value << "\"connected\":" << (connected ? "true" : "false") << ",";
-  str_value << "\"mode\":" << std::fixed << std::setprecision(0) << +mode << ",";
-  str_value << "\"altitude\":" << std::fixed << std::setprecision(0) << altitude << ",";
-  str_value << "\"latitude\":" << std::fixed << std::setprecision(6) << latitude << ",";
-  str_value << "\"longitude\":" << std::fixed << std::setprecision(6) << longitude << ",";
-  str_value << "\"year\":" << std::fixed << std::setprecision(0) << year << ",";
-  str_value << "\"month\":" << std::fixed << std::setprecision(0) << +month << ",";
-  str_value << "\"day\":" << std::fixed << std::setprecision(0) << +day << ",";
-  str_value << "\"hour\":" << std::fixed << std::setprecision(0) << +hour << ",";
-  str_value << "\"minute\":" << std::fixed << std::setprecision(0) << +minute << ",";
-  str_value << "\"second\":" << std::fixed << std::setprecision(0) << +second << ",";
-  str_value << "\"pdop\":" << std::fixed << std::setprecision(1) << pdop << ",";
-  str_value << "\"hdop\":" << std::fixed << std::setprecision(1) << hdop << ",";
-  str_value << "\"vdop\":" << std::fixed << std::setprecision(1) << vdop << ",";
-  str_value << "\"ground_speed\":" << std::fixed << std::setprecision(2) << ground_speed << ",";
-  str_value << "\"climb_rate\":" << std::fixed << std::setprecision(2) << climb_rate << ",";
-  str_value << "\"course\":" << std::fixed << std::setprecision(0) << +course << "}";
+  str_value << "\"NSat\":" << std::fixed << std::setprecision(0) << +nsat << ",";
+  str_value << "\"Locked\":" << (locked ? "true" : "false") << ",";
+  str_value << "\"Connected\":" << (connected ? "true" : "false") << ",";
+  str_value << "\"Mode\":" << std::fixed << std::setprecision(0) << +mode << ",";
+  str_value << "\"Altitude\":" << std::fixed << std::setprecision(0) << altitude << ",";
+  str_value << "\"Latitude\":" << std::fixed << std::setprecision(6) << latitude << ",";
+  str_value << "\"Longitude\":" << std::fixed << std::setprecision(6) << longitude << ",";
+  str_value << "\"Year\":" << std::fixed << std::setprecision(0) << year << ",";
+  str_value << "\"Month\":" << std::fixed << std::setprecision(0) << +month << ",";
+  str_value << "\"Day\":" << std::fixed << std::setprecision(0) << +day << ",";
+  str_value << "\"Hour\":" << std::fixed << std::setprecision(0) << +hour << ",";
+  str_value << "\"Minute\":" << std::fixed << std::setprecision(0) << +minute << ",";
+  str_value << "\"Second\":" << std::fixed << std::setprecision(0) << +second << ",";
+  str_value << "\"PDop\":" << std::fixed << std::setprecision(1) << pdop << ",";
+  str_value << "\"HDop\":" << std::fixed << std::setprecision(1) << hdop << ",";
+  str_value << "\"VDop\":" << std::fixed << std::setprecision(1) << vdop << ",";
+  str_value << "\"GroundSpeed\":" << std::fixed << std::setprecision(2) << ground_speed << ",";
+  str_value << "\"ClimbRate\":" << std::fixed << std::setprecision(2) << climb_rate << ",";
+  str_value << "\"Course\":" << std::fixed << std::setprecision(0) << +course << "}";
 }
 
 AltosTelemetrySatellite::AltosTelemetrySatellite(
@@ -192,17 +192,17 @@ AltosTelemetrySatellite::AltosTelemetrySatellite(
     channels = 12;
   }
   if (channels > 0) {
-    str_value << "\"sats\":[";
+    str_value << "\"Sats\":[";
     for (uint8_t i = 0; i < channels; i++) {
       if (i > 0) {
         str_value << ",";
       }
-      str_value << "{\"svid\":" << std::fixed << std::setprecision(0) << +uint8(6 + i * 2 + 0) << ",";
-      str_value << "\"c_n_1\":" << std::fixed << std::setprecision(0) << +uint8(6 + i * 2 + 1) << "}";
+      str_value << "{\"SVID\":" << std::fixed << std::setprecision(0) << +uint8(6 + i * 2 + 0) << ",";
+      str_value << "\"C_N_1\":" << std::fixed << std::setprecision(0) << +uint8(6 + i * 2 + 1) << "}";
     }
     str_value << "],";
   }
-  str_value << "\"channels\":" << std::fixed << std::setprecision(0) << +channels << "}";
+  str_value << "\"Channels\":" << std::fixed << std::setprecision(0) << +channels << "}";
 }
 
 AltosTelemetryCompanion::AltosTelemetryCompanion(
@@ -213,10 +213,10 @@ AltosTelemetryCompanion::AltosTelemetryCompanion(
   uint8_t update_period = uint8(6);
   uint8_t channels = uint8(7);
   if (channels > 0) {
-    str_value << "\"board_id\":" << std::fixed << std::setprecision(0) << +board_id << ",";
-    str_value << "\"update_period\":" << std::fixed << std::setprecision(0) << +update_period << ",";
+    str_value << "\"BoardId\":" << std::fixed << std::setprecision(0) << +board_id << ",";
+    str_value << "\"UpdatePeriod\":" << std::fixed << std::setprecision(0) << +update_period << ",";
 
-    str_value << "\"data\":[";
+    str_value << "\"Data\":[";
     for (uint8_t i = 0; i < channels; i++) {
       if (i > 0) {
         str_value << ",";
@@ -225,7 +225,7 @@ AltosTelemetryCompanion::AltosTelemetryCompanion(
     }
     str_value << "],";
   }
-  str_value << "\"channels\":" << std::fixed << std::setprecision(0) << +channels << "}";
+  str_value << "\"Channels\":" << std::fixed << std::setprecision(0) << +channels << "}";
 }
 
 AltosTelemetryMegaSensor::AltosTelemetryMegaSensor(
@@ -251,19 +251,19 @@ AltosTelemetryMegaSensor::AltosTelemetryMegaSensor(
   int16_t pres = int32(8);
   double temp = int16(12) / 100.0;
 
-  str_value << "\"accel_across\":" << std::fixed << std::setprecision(0) << accel_across << ",";
-  str_value << "\"accel_along\":" << std::fixed << std::setprecision(0) << accel_along << ",";
-  str_value << "\"accel_through\":" << std::fixed << std::setprecision(0) << accel_through << ",";
-  str_value << "\"gyro_roll\":" << std::fixed << std::setprecision(0) << accel_across << ",";
-  str_value << "\"gyro_pitch\":" << std::fixed << std::setprecision(0) << accel_along << ",";
-  str_value << "\"gyro_yaw\":" << std::fixed << std::setprecision(0) << accel_through << ",";
-  str_value << "\"mag_across\":" << std::fixed << std::setprecision(0) << accel_across << ",";
-  str_value << "\"mag_along\":" << std::fixed << std::setprecision(0) << accel_along << ",";
-  str_value << "\"mag_through\":" << std::fixed << std::setprecision(0) << accel_through << ",";
-  str_value << "\"orient\":" << std::fixed << std::setprecision(0) << orient << ",";
-  str_value << "\"accel\":" << std::fixed << std::setprecision(0) << accel << ",";
-  str_value << "\"pres\":" << std::fixed << std::setprecision(0) << pres << ",";
-  str_value << "\"temp\":" << std::fixed << std::setprecision(2) << temp << "}";
+  str_value << "\"AccelAcross\":" << std::fixed << std::setprecision(0) << accel_across << ",";
+  str_value << "\"AccelAlong\":" << std::fixed << std::setprecision(0) << accel_along << ",";
+  str_value << "\"AccelThrough\":" << std::fixed << std::setprecision(0) << accel_through << ",";
+  str_value << "\"GyroRoll\":" << std::fixed << std::setprecision(0) << accel_across << ",";
+  str_value << "\"GyroPitch\":" << std::fixed << std::setprecision(0) << accel_along << ",";
+  str_value << "\"GyroYaw\":" << std::fixed << std::setprecision(0) << accel_through << ",";
+  str_value << "\"MagAcross\":" << std::fixed << std::setprecision(0) << accel_across << ",";
+  str_value << "\"MagAlong\":" << std::fixed << std::setprecision(0) << accel_along << ",";
+  str_value << "\"MagThrough\":" << std::fixed << std::setprecision(0) << accel_through << ",";
+  str_value << "\"Orient\":" << std::fixed << std::setprecision(0) << orient << ",";
+  str_value << "\"Accel\":" << std::fixed << std::setprecision(0) << accel << ",";
+  str_value << "\"Pres\":" << std::fixed << std::setprecision(0) << pres << ",";
+  str_value << "\"Temp\":" << std::fixed << std::setprecision(2) << temp << "}";
 }
 
 AltosTelemetryMegaData::AltosTelemetryMegaData(
@@ -276,7 +276,7 @@ AltosTelemetryMegaData::AltosTelemetryMegaData(
     ? mega_pyro_voltage(int16(8))
     : mega_pyro_voltage_30v(int16(8));
   
-  str_value << "\"pyro\":[";
+  str_value << "\"Pyro\":[";
   for (int i = 0; i < 6; i++) {
     uint8_t v = uint8(10 + i);
     if (i > 0) {
@@ -297,16 +297,16 @@ AltosTelemetryMegaData::AltosTelemetryMegaData(
   int16_t speed = int16(28);
   int16_t height = int16(30);
   
-  str_value << "\"state\":" << std::fixed << std::setprecision(0) << +state << ",";
-  str_value << "\"v_batt\":" << std::fixed << std::setprecision(2) << v_batt << ",";
-  str_value << "\"v_pyro\":" << std::fixed << std::setprecision(2) << v_pyro << ",";
-  str_value << "\"ground_pres\":" << std::fixed << std::setprecision(0) << ground_pres << ",";
-  str_value << "\"ground_accel\":" << std::fixed << std::setprecision(0) << ground_accel << ",";
-  str_value << "\"accel_plus_g\":" << std::fixed << std::setprecision(0) << accel_plus_g << ",";
-  str_value << "\"accel_minus_g\":" << std::fixed << std::setprecision(0) << accel_minus_g << ",";
-  str_value << "\"accel\":" << std::fixed << std::setprecision(0) << acceleration << ",";
-  str_value << "\"speed\":" << std::fixed << std::setprecision(0) << speed << ",";
-  str_value << "\"height\":" << std::fixed << std::setprecision(0) << height << "}";
+  str_value << "\"State\":" << std::fixed << std::setprecision(0) << +state << ",";
+  str_value << "\"BattV\":" << std::fixed << std::setprecision(2) << v_batt << ",";
+  str_value << "\"PyroV\":" << std::fixed << std::setprecision(2) << v_pyro << ",";
+  str_value << "\"GroundPres\":" << std::fixed << std::setprecision(0) << ground_pres << ",";
+  str_value << "\"GroundAccel\":" << std::fixed << std::setprecision(0) << ground_accel << ",";
+  str_value << "\"AccelPlusG\":" << std::fixed << std::setprecision(0) << accel_plus_g << ",";
+  str_value << "\"AccelMinusG\":" << std::fixed << std::setprecision(0) << accel_minus_g << ",";
+  str_value << "\"Accel\":" << std::fixed << std::setprecision(0) << acceleration << ",";
+  str_value << "\"Speed\":" << std::fixed << std::setprecision(0) << speed << ",";
+  str_value << "\"Height\":" << std::fixed << std::setprecision(0) << height << "}";
 }
 
 AltosTelemetryMetrumSensor::AltosTelemetryMetrumSensor(
@@ -324,16 +324,16 @@ AltosTelemetryMetrumSensor::AltosTelemetryMetrumSensor(
   double sense_a = mega_pyro_voltage(int16(22));
   double sense_m = mega_pyro_voltage(int16(24));
 
-  str_value << "\"state\":" << std::fixed << std::setprecision(0) << +state << ",";
-  str_value << "\"accel\":" << std::fixed << std::setprecision(0) << accel << ",";
-  str_value << "\"pres\":" << std::fixed << std::setprecision(0) << pres << ",";
-  str_value << "\"temp\":" << std::fixed << std::setprecision(2) << (temp / 100.0) << ",";
-  str_value << "\"acceleration\":" << std::fixed << std::setprecision(2) << (acceleration / 16.0) << ",";
-  str_value << "\"speed\":" << std::fixed << std::setprecision(2) << (speed / 16.0) << ",";
-  str_value << "\"height\":" << std::fixed << std::setprecision(0) << height << ",";
-  str_value << "\"v_batt\":" << std::fixed << std::setprecision(2) << v_batt << ",";
-  str_value << "\"sense_a\":" << std::fixed << std::setprecision(2) << sense_a << ",";
-  str_value << "\"sense_m\":" << std::fixed << std::setprecision(2) << sense_m << "}";
+  str_value << "\"State\":" << std::fixed << std::setprecision(0) << +state << ",";
+  str_value << "\"Accelerometer\":" << std::fixed << std::setprecision(0) << accel << ",";
+  str_value << "\"Pres\":" << std::fixed << std::setprecision(0) << pres << ",";
+  str_value << "\"Temp\":" << std::fixed << std::setprecision(2) << (temp / 100.0) << ",";
+  str_value << "\"Accel\":" << std::fixed << std::setprecision(2) << (acceleration / 16.0) << ",";
+  str_value << "\"Speed\":" << std::fixed << std::setprecision(2) << (speed / 16.0) << ",";
+  str_value << "\"Height\":" << std::fixed << std::setprecision(0) << height << ",";
+  str_value << "\"BattV\":" << std::fixed << std::setprecision(2) << v_batt << ",";
+  str_value << "\"ApogeeVolts\":" << std::fixed << std::setprecision(2) << sense_a << ",";
+  str_value << "\"MainVolts\":" << std::fixed << std::setprecision(2) << sense_m << "}";
 }
 
 AltosTelemetryMetrumData::AltosTelemetryMetrumData(
@@ -345,10 +345,10 @@ AltosTelemetryMetrumData::AltosTelemetryMetrumData(
   int32_t accel_plus_g = int16(14);
   int32_t accel_minus_g = int16(16);
 
-  str_value << "\"ground_pres\":" << std::fixed << std::setprecision(0) << ground_pres << ",";
-  str_value << "\"ground_accel\":" << std::fixed << std::setprecision(0) << ground_accel << ",";
-  str_value << "\"accel_plus_g\":" << std::fixed << std::setprecision(0) << accel_plus_g << ",";
-  str_value << "\"accel_minus_g\":" << std::fixed << std::setprecision(0) << accel_minus_g << "}";
+  str_value << "\"GroundPres\":" << std::fixed << std::setprecision(0) << ground_pres << ",";
+  str_value << "\"GroundAccel\":" << std::fixed << std::setprecision(0) << ground_accel << ",";
+  str_value << "\"AccelPlusG\":" << std::fixed << std::setprecision(0) << accel_plus_g << ",";
+  str_value << "\"AccelMinusG\":" << std::fixed << std::setprecision(0) << accel_minus_g << "}";
 }
 
 AltosTelemetryMini::AltosTelemetryMini(
@@ -366,16 +366,16 @@ AltosTelemetryMini::AltosTelemetryMini(
   int16_t height = int16(22);
   int32_t ground_pres = int32(24);
 
-  str_value << "\"state\":" << std::fixed << std::setprecision(0) << +state << ",";
-  str_value << "\"v_batt\":" << std::fixed << std::setprecision(2) << v_batt << ",";
-  str_value << "\"sense_a\":" << std::fixed << std::setprecision(2) << sense_a << ",";
-  str_value << "\"sense_m\":" << std::fixed << std::setprecision(2) << sense_m << ",";
-  str_value << "\"pres\":" << std::fixed << std::setprecision(0) << pres << ",";
-  str_value << "\"temp\":" << std::fixed << std::setprecision(2) << temp << ",";
-  str_value << "\"acceleration\":" << std::fixed << std::setprecision(2) << acceleration << ",";
-  str_value << "\"speed\":" << std::fixed << std::setprecision(2) << speed << ",";
-  str_value << "\"height\":" << std::fixed << std::setprecision(0) << height << ",";
-  str_value << "\"ground_pres\":" << std::fixed << std::setprecision(0) << ground_pres << "}";
+  str_value << "\"State\":" << std::fixed << std::setprecision(0) << +state << ",";
+  str_value << "\"BattV\":" << std::fixed << std::setprecision(2) << v_batt << ",";
+  str_value << "\"ApogeeVolts\":" << std::fixed << std::setprecision(2) << sense_a << ",";
+  str_value << "\"MainVolts\":" << std::fixed << std::setprecision(2) << sense_m << ",";
+  str_value << "\"Pres\":" << std::fixed << std::setprecision(0) << pres << ",";
+  str_value << "\"Temp\":" << std::fixed << std::setprecision(2) << temp << ",";
+  str_value << "\"Accel\":" << std::fixed << std::setprecision(2) << acceleration << ",";
+  str_value << "\"Speed\":" << std::fixed << std::setprecision(2) << speed << ",";
+  str_value << "\"Height\":" << std::fixed << std::setprecision(0) << height << ",";
+  str_value << "\"GroundPres\":" << std::fixed << std::setprecision(0) << ground_pres << "}";
 }
 
 AltosTelemetryMegaNorm::AltosTelemetryMegaNorm(
@@ -396,19 +396,19 @@ AltosTelemetryMegaNorm::AltosTelemetryMegaNorm(
   int16_t mag_across = int16(28);
   int16_t mag_through = int16(30);
 
-  str_value << "\"orient\":" << std::fixed << std::setprecision(0) << orient << ",";
-  str_value << "\"accel\":" << std::fixed << std::setprecision(0) << accel << ",";
-  str_value << "\"pres\":" << std::fixed << std::setprecision(0) << pres << ",";
-  str_value << "\"temp\":" << std::fixed << std::setprecision(2) << temp << ",";
-  str_value << "\"accel_along\":" << std::fixed << std::setprecision(0) << accel_along << ",";
-  str_value << "\"accel_across\":" << std::fixed << std::setprecision(0) << accel_across << ",";
-  str_value << "\"accel_through\":" << std::fixed << std::setprecision(0) << accel_through << ",";
-  str_value << "\"gyro_roll\":" << std::fixed << std::setprecision(0) << gyro_roll << ",";
-  str_value << "\"gyro_pitch\":" << std::fixed << std::setprecision(0) << gyro_pitch << ",";
-  str_value << "\"gyro_yaw\":" << std::fixed << std::setprecision(0) << gyro_yaw << ",";
-  str_value << "\"mag_along\":" << std::fixed << std::setprecision(0) << mag_along << ",";
-  str_value << "\"mag_across\":" << std::fixed << std::setprecision(0) << mag_across << ",";
-  str_value << "\"mag_through\":" << std::fixed << std::setprecision(0) << mag_through << "}";
+  str_value << "\"Orient\":" << std::fixed << std::setprecision(0) << orient << ",";
+  str_value << "\"Accel\":" << std::fixed << std::setprecision(0) << accel << ",";
+  str_value << "\"Pres\":" << std::fixed << std::setprecision(0) << pres << ",";
+  str_value << "\"Temp\":" << std::fixed << std::setprecision(2) << temp << ",";
+  str_value << "\"AccelAlong\":" << std::fixed << std::setprecision(0) << accel_along << ",";
+  str_value << "\"AccelAcross\":" << std::fixed << std::setprecision(0) << accel_across << ",";
+  str_value << "\"AccelThrough\":" << std::fixed << std::setprecision(0) << accel_through << ",";
+  str_value << "\"GyroRoll\":" << std::fixed << std::setprecision(0) << gyro_roll << ",";
+  str_value << "\"GyroPitch\":" << std::fixed << std::setprecision(0) << gyro_pitch << ",";
+  str_value << "\"GyroYaw\":" << std::fixed << std::setprecision(0) << gyro_yaw << ",";
+  str_value << "\"MagAlong\":" << std::fixed << std::setprecision(0) << mag_along << ",";
+  str_value << "\"MagAcross\":" << std::fixed << std::setprecision(0) << mag_across << ",";
+  str_value << "\"MagThrough\":" << std::fixed << std::setprecision(0) << mag_through << "}";
 }
 
 AltosBasePacket *make_altus_packet(

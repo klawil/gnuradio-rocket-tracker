@@ -14,7 +14,7 @@ type devicePacket struct {
 	DeviceType    sql.NullInt16
 	DeviceSerial  uint16
 	MaxCreatedAt  time.Time
-	CombinedState string
+	CombinedState interface{}
 }
 
 type listDevicesApiResponse struct {
@@ -30,9 +30,9 @@ func listDevices(c *fiber.Ctx) error {
 	var rows *sql.Rows
 	var err error
 	if c.QueryBool("all") {
-		rows, err = db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state #>> '{}' FROM devices_state")
+		rows, err = db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state FROM devices_state")
 	} else {
-		rows, err = db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state #>> '{}' FROM devices_state WHERE max_created_at >= timezone('utc', now()) - INTERVAL '12 days'")
+		rows, err = db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state FROM devices_state WHERE max_created_at >= timezone('utc', now()) - INTERVAL '12 days'")
 	}
 	if err != nil {
 		log.WithError(err).Error("Failed to query devices")
@@ -42,17 +42,22 @@ func listDevices(c *fiber.Ctx) error {
 	defer rows.Close()
 	for rows.Next() {
 		device := devicePacket{}
+		var jsonStr []byte
 		err = rows.Scan(
 			&device.DeviceName,
 			&device.DeviceType,
 			&device.DeviceSerial,
 			&device.MaxCreatedAt,
-			&device.CombinedState,
+			&jsonStr,
 		)
 		if err != nil {
 			log.WithError(err).Error("Failed to get device row")
 			continue
 		}
+		err = json.Unmarshal(
+			jsonStr,
+			&device.CombinedState,
+		)
 
 		count++
 		devices = append(devices, device)
@@ -91,13 +96,6 @@ func patchDevice(c *fiber.Ctx) error {
 		baseLog.WithError(err).Error("Failed to unmarshal body")
 		return sendError(c, err)
 	}
-	// if body.Name == "" {
-	// 	baseLog.Error("Missing Name in body")
-	// 	return c.JSON(BaseApiResponse{
-	// 		Success: false,
-	// 		Msg:     "Name is missing",
-	// 	})
-	// }
 	baseLog.WithField("bodyp", body).Info("Patch request")
 
 	// Update the database
@@ -213,7 +211,7 @@ func getDevice(c *fiber.Ctx) error {
 
 	// Get the packets
 	rows, err := db.Query(
-		"SELECT packet_json FROM packets WHERE packet_json->>'serial' = $1 ORDER BY created_at DESC LIMIT 200",
+		"SELECT packet_json FROM packets WHERE packet_json->>'Serial' = $1 ORDER BY created_at DESC LIMIT 200",
 		id,
 	)
 	if err != nil {

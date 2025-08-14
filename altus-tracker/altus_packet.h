@@ -26,8 +26,8 @@ class AltosBasePacket {
     uint32_t uint32(int i) {
       return message[i] +
         (message[i+1] << 8) +
-        (message[i+1] << 16) +
-        (message[i+1] << 24);
+        (message[i+2] << 16) +
+        (message[i+3] << 24);
     }
 
     int32_t int32(int i) {

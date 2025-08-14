@@ -181,8 +181,8 @@ set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wno-unused-local-typedef -Wno-deprecated-decla
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wno-narrowing -fvisibility=hidden -fPIC")
 
 list(APPEND altus_tracker_sources
-  altus-tracker/altus_decoder.cc
-  altus-tracker/altus_channel.cc
+  altus-tracker/blocks/altus_decoder.cc
+  altus-tracker/blocks/altus_channel.cc
   altus-tracker/altus_packet.cc
 )
 

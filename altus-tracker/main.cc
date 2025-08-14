@@ -27,7 +27,7 @@
 #include <fcntl.h>
 
 #include "constants.h"
-#include "altus_channel.h"
+#include "blocks/altus_channel.h"
 #include "altus_packet.h"
 
 int socket_conn = -1;
@@ -40,6 +40,7 @@ bool running = true;
 
 // These stay constant
 const double sample_rate = 10000000;
+// const double sample_rate = 2500000;
 const char * data_file = "../data.cfile";
 uint32_t input_center_freq = 434800000;
 

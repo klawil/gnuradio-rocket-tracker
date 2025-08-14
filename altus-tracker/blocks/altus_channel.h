@@ -24,9 +24,9 @@
 #include <string>
 #include <vector>
 
-#include "constants.h"
+#include "../constants.h"
 #include "altus_decoder.h"
-#include "altus_packet.h"
+#include "../altus_packet.h"
 
 #ifdef gnuradio_Altus_Decoder_EXPORTS
 #define ALTUS_DECODER_API __GR_ATTR_EXPORT
@@ -37,7 +37,6 @@
 class AltusChannel;
 
 typedef std::shared_ptr<AltusChannel> altus_channel_sptr;
-
 
 /**
  * @brief Generate an altus channel block

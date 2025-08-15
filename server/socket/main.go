@@ -84,7 +84,7 @@ func parseLine(message string, db *sql.DB, source Source) {
 		split := strings.Split(message, ":")
 		baseLog = baseLog.WithField("split", split)
 		freq := split[1][0 : len(split[1])-1]
-		baseLog.Info("channel message received")
+		baseLog.Debug("channel message received")
 
 		chFreq, err := strconv.Atoi(freq)
 		if err != nil {
@@ -114,6 +114,7 @@ func parseLine(message string, db *sql.DB, source Source) {
 	if err != nil {
 		baseLog.WithError(err).Error("Failed to parse packet")
 	} else {
+		baseLog.Debug("Packet")
 		_, err = db.Exec(
 			"INSERT INTO packets (packet_json, source_id) VALUES ($1, $2)",
 			message,

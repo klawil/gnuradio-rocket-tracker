@@ -183,6 +183,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wno-narrowing -fvisibility=hid
 list(APPEND altus_tracker_sources
   altus-tracker/blocks/altus_decoder.cc
   altus-tracker/blocks/altus_channel.cc
+  altus-tracker/blocks/altus_power_level.cc
+  altus-tracker/blocks/altus_detector.cc
   altus-tracker/altus_packet.cc
 )
 

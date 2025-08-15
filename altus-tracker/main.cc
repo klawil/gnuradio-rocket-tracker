@@ -237,8 +237,8 @@ void process_queue(
         std::chrono::system_clock::now().time_since_epoch()
       );
       if (uint32_t(now.count() - last_message.count()) >= min_ping_wait) {
-        std::cout << "Ping after " << uint32_t(now.count() - last_message.count()) << std::endl;
         if (socket_connected) {
+          std::cout << "Ping after " << uint32_t(now.count() - last_message.count()) << std::endl;
           write(socket_conn, ping_message.c_str(), ping_message.length());
         } else if (socket_conn == -1) {
           open_socket(socket_host, socket_port);
@@ -258,13 +258,11 @@ void process_queue(
 
 void add_channel(uint32_t channel_freq) {
   // Check to see if the channel already exists
-  std::cout << "Adding channel (1) " << std::fixed << std::setprecision(4) << (float(channel_freq) / 1000000) << std::endl;
   for (int i = 0; i < channel_count; i++) {
     if (channel_blocks[i]->channel_freq == channel_freq) {
       return;
     }
   }
-  std::cout << "Adding channel " << std::fixed << std::setprecision(4) << (float(channel_freq) / 1000000) << std::endl;
 
   // Add the channel
   uint32_t channel_being_removed = channel_blocks[channel_idx]->channel_freq;
@@ -410,7 +408,7 @@ int main(int argc, char **argv) {
   );
 
   // Build the detector
-  uint16_t fft_size = 2048;
+  uint16_t fft_size = 2048 * 2;
   auto b1 = make_altus_power_level(
     sample_rate,
     fft_size

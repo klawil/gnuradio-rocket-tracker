@@ -31,6 +31,7 @@ namespace gr {
         uint32_t last_n_channels[10];
         int channel_idx = 0;
         int total_channels;
+        float last_threshold;
 
       public:
         typedef std::shared_ptr<Detector> sptr;

@@ -77,25 +77,31 @@ namespace gr {
     ) {
       size_t itemsize = sizeof(float);
       const char* in = (const char*)input_items[0];
+
       for (int j = 0; j < noutput_items; j++) {
-        std::vector<peak_t> peaks;
+        auto start_in = in;
         float all_v = 0;
         for (int i = 0; i < fft_size; i++) {
           float v;
           std::memcpy(&v, in, itemsize);
           all_v += v;
-          if (v > -50) {
+        }
+        float threshold = (all_v + fft_size * last_threshold) / (fft_size * 2);
+        last_threshold = threshold;
+        // threshold = -50;
+        // std::cout << "Threshold: " << std::fixed << std::setprecision(0) << threshold << std::endl;
+
+        in = start_in;
+        std::vector<peak_t> peaks;
+        for (int i = 0; i < fft_size; i++) {
+          float v;
+          std::memcpy(&v, in, itemsize);
+          if (v > threshold + 60) {
             peak_t peak = { bucket_to_freq(i), v };
             peaks.push_back(peak);
-            // std::cout << "Peak at " << i << " (" << peak.freq << ")" << std::endl;
-          // } else if (bucket_to_freq(i) >= 436545000 && bucket_to_freq(i) <= 436555000) {
-          //   std::cout << "Bucket " << std::fixed << std::setprecision(0) << i << " ";
-          //   std::cout << bucket_to_freq(i) << " ";
-          //   std::cout << v << std::endl;
           }
           in += itemsize;
         }
-        // std::cout << "Amp: " << std::fixed << std::setprecision(0) << (all_v / fft_size) << std::endl;
 
         if (peaks.size() > 0) {
           std::vector<peak_t> new_peaks;

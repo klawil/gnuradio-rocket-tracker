@@ -66,7 +66,6 @@ AltusPowerLevel::AltusPowerLevel(
     -10 * std::log10(float(window_power) / fft_size)
     -20 * std::log10(1.0)
   );
-  std::cout << "One in n: " << one_in_n << std::endl;
 
   connect(self(), 0, stream_to_vector, 0);
   connect(stream_to_vector, 0, keep_one_in_n, 0);

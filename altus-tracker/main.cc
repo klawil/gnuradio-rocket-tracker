@@ -29,6 +29,8 @@
 #include "constants.h"
 #include "blocks/altus_channel.h"
 #include "altus_packet.h"
+#include "blocks/altus_power_level.h"
+#include "blocks/altus_detector.h"
 
 int socket_conn = -1;
 bool socket_connected = false;
@@ -43,10 +45,12 @@ const double sample_rate = 10000000;
 // const double sample_rate = 2500000;
 const char * data_file = "../data.cfile";
 uint32_t input_center_freq = 434800000;
+// uint32_t input_center_freq = 435750000;
 
 gr::basic_block_sptr source;
-std::vector<uint32_t> channels;
-std::vector<altus_channel_sptr> channel_blocks;
+const int channel_count = 10;
+altus_channel_sptr channel_blocks[channel_count];
+int channel_idx = 0;
 
 gr::block_sptr make_file_source(
   gr::top_block_sptr tb,
@@ -149,9 +153,9 @@ void handle_message() {
   if (msg == "!!") {
     std::cout << "Init command" << std::endl;
     outgoing_messages_mutex.lock();
-    for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
+    for (int i = 0; i < channel_count; i++) {
       std::stringstream msg;
-      msg << "c:" << std::fixed << std::setprecision(0) << *c << "\n";
+      msg << "c:" << std::fixed << std::setprecision(0) << channel_blocks[i]->channel_freq << "\n";
       std::cout << "Msg out: " << msg.str();
       outgoing_messages.push_back(msg.str());
     }
@@ -197,8 +201,8 @@ void process_queue(
     bool sent_message = false;
     uint16_t packets_sent = 0;
     std::stringstream msg_value;
-    for (std::vector<altus_channel_sptr>::iterator chan_ptr = channel_blocks.begin(); chan_ptr != channel_blocks.end(); chan_ptr++) {
-      auto chan = *chan_ptr;
+    for (int i = 0; i < channel_count; i++) {
+      auto chan = channel_blocks[i];
       chan->packet_queue_mutex.lock();
       for (std::vector<std::string>::iterator msg_ptr = chan->packet_queue.begin(); msg_ptr != chan->packet_queue.end(); msg_ptr++) {
         std::string msg = *msg_ptr;
@@ -254,27 +258,28 @@ void process_queue(
 
 void add_channel(uint32_t channel_freq) {
   // Check to see if the channel already exists
-  for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
-    if (*c == channel_freq) {
+  std::cout << "Adding channel (1) " << std::fixed << std::setprecision(4) << (float(channel_freq) / 1000000) << std::endl;
+  for (int i = 0; i < channel_count; i++) {
+    if (channel_blocks[i]->channel_freq == channel_freq) {
       return;
     }
   }
+  std::cout << "Adding channel " << std::fixed << std::setprecision(4) << (float(channel_freq) / 1000000) << std::endl;
 
   // Add the channel
-  tb->lock();
-  channels.push_back(channel_freq);
-  altus_channel_sptr channel = make_altus_channel(
-    channel_freq,
-    double(input_center_freq),
-    double(sample_rate)
-  );
-  tb->connect(source, 0, channel, 0);
-  channel_blocks.push_back(channel);
-  tb->unlock();
+  uint32_t channel_being_removed = channel_blocks[channel_idx]->channel_freq;
+  channel_blocks[channel_idx]->set_channel(channel_freq);
 
-  // Add the channel message
+  // Increment the index
+  channel_idx++;
+  if (channel_idx >= channel_count) {
+    channel_idx = 0;
+  }
+
+  // Send a socket message (if open)
   if (socket_connected) {
     std::stringstream msg;
+    msg << "r:" << channel_being_removed << "\n";
     msg << "c:" << channel_freq << "\n";
 
     outgoing_messages_mutex.lock();
@@ -283,50 +288,42 @@ void add_channel(uint32_t channel_freq) {
   }
 }
 
-void rm_channel(uint32_t channel_freq) {
-  // Check to see if the channel already exists
-  uint8_t exists = 0;
-  for (std::vector<uint32_t>::iterator c = channels.begin(); c != channels.end(); c++) {
-    if (*c == channel_freq) {
-      exists = 1;
-    }
-  }
-  if (exists == 0) {
-    return;
-  }
-
-  // Remove the channel
-  tb->lock();
-  for (size_t ci = channel_blocks.size() - 1; ci >= 1; ci--) {
-    altus_channel_sptr cb = channel_blocks[ci];
-    if (cb->channel_freq == double(channel_freq)) {
-      tb->disconnect(cb);
-      channel_blocks.erase(channel_blocks.begin() + ci);
-
-      break;
-    }
+void build_channel(uint32_t channel_freq) {
+  // Add the channel
+  altus_channel_sptr channel = make_altus_channel(
+    channel_freq,
+    double(input_center_freq),
+    sample_rate
+  );
+  tb->connect(source, 0, channel, 0);
+  channel_blocks[channel_idx] = channel;
+  channel_idx++;
+  if (channel_idx >= channel_count) {
+    channel_idx = 0;
   }
 
-  for (size_t ci = channels.size() - 1; ci >= 1; ci--) {
-    if (channels[ci] == channel_freq) {
-      channels.erase(channels.begin() + ci);
-      break;
-    }
-  }
+  // // Add the channel message
+  // if (socket_connected) {
+  //   std::stringstream msg;
+  //   msg << "c:" << channel_freq << "\n";
 
-  // Add the channel message
-  if (socket_connected) {
-    std::stringstream msg;
-    msg << "r:" << channel_freq << "\n";
-
-    outgoing_messages_mutex.lock();
-    outgoing_messages.push_back(msg.str());
-    outgoing_messages_mutex.unlock();
-  }
-  tb->unlock();
+  //   outgoing_messages_mutex.lock();
+  //   outgoing_messages.push_back(msg.str());
+  //   outgoing_messages_mutex.unlock();
+  // }
 }
 
 int main(int argc, char **argv) {
+  // uint8_t byte0 = 0x76;
+  // uint8_t byte1 = 0xf1;
+  // uint8_t byte2 = 0xa1;
+  // uint8_t byte3 = 0x16;
+  // uint32_t v1 = byte0 + (byte1 << 8) + (byte2 << 16) + (byte3 << 24);
+  // std::cout << "UInt: " << std::fixed << std::setprecision(0) << v1 << std::endl;
+  // std::cout << "Int: " << std::fixed << std::setprecision(0) << int32_t(v1) << std::endl;
+  // std::cout << "Float: " << std::fixed << std::setprecision(7) << (int32_t(v1) * 1e-7) << std::endl;
+  // return 0;
+
   po::options_description desc("Options");
   desc.add_options()
     ("help,h", "Help screen")
@@ -353,25 +350,10 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  std::string socket_host = "127.0.0.1";
-  uint16_t socket_port = 8765;
-  if (vm.count("socket")) {
-    socket_host = vm["socket"].as<std::string>();
-  }
-  if (vm.count("port")) {
-    socket_port = vm["port"].as<uint16_t>();
-  }
-
-  std::thread packet_writer (
-    process_queue,
-    socket_host,
-    socket_port
-  );
-
+  // Build the top block
   tb = gr::make_top_block("Altus");
-  tb->lock();
-  tb->unlock();
 
+  // Build the input
   std::string source_type = "sdr";
   if (vm.count("file")) {
     data_file = vm["file"].as<std::string>().c_str();
@@ -398,19 +380,50 @@ int main(int argc, char **argv) {
     tb->connect(source, 0, file, 0);
   }
 
-  // Generate all of the channel frequencies
-  add_channel(434550000); // Ch 01
-  add_channel(434650000); // Ch 02
-  add_channel(434750000); // Ch 03
-  add_channel(434850000); // Ch 04
-  add_channel(434950000); // Ch 05
-  add_channel(435050000); // Ch 06
-  add_channel(435150000); // Ch 07
-  add_channel(435250000); // Ch 08
-  add_channel(435350000); // Ch 09
-  add_channel(435450000); // Ch 10
+  // Generate all of the channel blocks
+  build_channel(434550000); // Ch 01
+  build_channel(434650000); // Ch 02
+  build_channel(434750000); // Ch 03
+  build_channel(434850000); // Ch 04
+  build_channel(434950000); // Ch 05
+  build_channel(435050000); // Ch 06
+  build_channel(435150000); // Ch 07
+  build_channel(435250000); // Ch 08
+  build_channel(435350000); // Ch 09
+  build_channel(435450000); // Ch 10
 
-  add_channel(436550000); // Wm
+  // Parse the socket options
+  std::string socket_host = "127.0.0.1";
+  uint16_t socket_port = 8765;
+  if (vm.count("socket")) {
+    socket_host = vm["socket"].as<std::string>();
+  }
+  if (vm.count("port")) {
+    socket_port = vm["port"].as<uint16_t>();
+  }
+
+  // Open the socket and wait for events
+  std::thread packet_writer (
+    process_queue,
+    socket_host,
+    socket_port
+  );
+
+  // Build the detector
+  uint16_t fft_size = 2048;
+  auto b1 = make_altus_power_level(
+    sample_rate,
+    fft_size
+  );
+  tb->connect(source, 0, b1, 0);
+  auto b2 = gr::AltusDecoder::Detector::make(
+    add_channel,
+    input_center_freq,
+    sample_rate,
+    fft_size,
+    5
+  );
+  tb->connect(b1, 0, b2, 0);
 
   tb->start();
   std::signal(SIGINT, &signal_handler);

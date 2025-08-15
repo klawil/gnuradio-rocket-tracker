@@ -35,6 +35,45 @@ void AltusChannel::handle_message(
   packet_queue_mutex.unlock();
 }
 
+void AltusChannel::set_channel(uint32_t c) {
+  std::cout << "Changing from " << std::fixed << std::setprecision(0) << channel_freq << " to ";
+  std::cout << std::setprecision(0) << std::fixed << c << std::endl;
+  channel_freq = c;
+
+  float channel_offset = channel_freq - center_freq;
+  int first_stage_decimation = floor(input_sample_rate / (channel_rate * first_stage_channel_width)); // 13.02
+
+  std::vector<gr_complex> base_first_stage_taps = gr::filter::firdes::complex_band_pass_2(
+    1,
+    input_sample_rate,
+    float(channel_rate) / -1,
+    float(channel_rate) / 1,
+    float(channel_rate) / 4,
+    10
+  );
+
+  // Generate the taps for filtering the offset frequency
+  float phase_inc = (2.0 * M_PI * channel_offset) / input_sample_rate;
+  std::vector<gr_complex> first_stage_taps;
+  gr_complex I = gr_complex(0.0, 1.0);
+  int i = 0;
+  for (
+    std::vector<gr_complex>::iterator it = base_first_stage_taps.begin();
+    it != base_first_stage_taps.end();
+    it++
+  ) {
+    gr_complex f = *it;
+    first_stage_taps.push_back(f * exp(i * phase_inc * I));
+    i++;
+  }
+  const float rotator_phase_inc = -1 * first_stage_decimation * phase_inc;
+
+  first_stage_filter->set_taps(first_stage_taps);
+  xlat_rotator->set_phase_inc(rotator_phase_inc);
+
+  altus_decode->reset();
+}
+
 AltusChannel::AltusChannel(
   double channel,
   double center,
@@ -54,7 +93,7 @@ AltusChannel::AltusChannel(
   input_sample_rate = s;
 
   // Calculate the values needed to generate filters
-  float channel_offset = channel_freq - center_freq;
+  // float channel_offset = channel_freq - center_freq;
   int first_stage_decimation = floor(input_sample_rate / (channel_rate * first_stage_channel_width)); // 13.02
   float first_stage_sample_rate = input_sample_rate / float(first_stage_decimation);
   int second_stage_decimation = floor(first_stage_sample_rate / channel_rate); // 4.006
@@ -83,29 +122,13 @@ AltusChannel::AltusChannel(
     fsk_deviation / 2,
     60
   );
-  
-  // Generate the taps for filtering the offset frequency
-  float phase_inc = (2.0 * M_PI * channel_offset) / input_sample_rate;
-  std::vector<gr_complex> first_stage_taps;
-  gr_complex I = gr_complex(0.0, 1.0);
-  int i = 0;
-  for (
-    std::vector<gr_complex>::iterator it = base_first_stage_taps.begin();
-    it != base_first_stage_taps.end();
-    it++
-  ) {
-    gr_complex f = *it;
-    first_stage_taps.push_back(f * exp(i * phase_inc * I));
-    i++;
-  }
-  const float rotator_phase_inc = -1 * first_stage_decimation * phase_inc;
 
   // Make the blocks
   first_stage_filter = gr::filter::fft_filter_ccc::make(
     first_stage_decimation,
-    first_stage_taps
+    base_first_stage_taps
   );
-  xlat_rotator = gr::blocks::rotator_cc::make(rotator_phase_inc);
+  xlat_rotator = gr::blocks::rotator_cc::make(0);
   second_stage_filter = gr::filter::fft_filter_ccf::make(
     second_stage_decimation,
     second_stage_taps
@@ -189,4 +212,6 @@ AltusChannel::AltusChannel(
   connect(fmdemod, 0, clock_recovery, 0);
   connect(clock_recovery, 0, slicer, 0);
   connect(slicer, 0, altus_decode, 0);
+
+  set_channel(channel);
 }

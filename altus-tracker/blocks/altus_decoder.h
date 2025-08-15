@@ -54,7 +54,6 @@ namespace gr {
         uint16_t computed_crc;
         uint16_t received_crc;
 
-        void reset();
         void parse_packet_bytes(); // Deinterleave and FEC decode
         void parse_full_packet(); // Whiten and check CRC
         uint32_t deinterleave(uint32_t base);
@@ -82,6 +81,7 @@ namespace gr {
           gr_vector_const_void_star& input_items,
           gr_vector_void_star& output_items
         );
+        void reset();
     };
   }
 }

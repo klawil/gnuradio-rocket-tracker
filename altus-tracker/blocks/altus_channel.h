@@ -132,11 +132,10 @@ class AltusChannel : public gr::hier_block2 {
     );
     
     /**
-     * @brief Set the center frequency of the receiver
-     * @TODO
-     * @param c The new center frequency
+     * @brief Set the new channel frequency
+     * @param c The new channel frequency
      */
-    void set_center(double c);
+    void set_channel(uint32_t c);
 
     // Message queue
     std::vector<std::string> packet_queue;

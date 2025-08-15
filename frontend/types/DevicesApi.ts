@@ -1,4 +1,4 @@
-import { DeviceTypes, FlightState, FlightStateNames, FullState } from "./Altus";
+import { AltusPacket, DeviceTypes, FlightState, FlightStateNames, FullState } from "./Altus";
 
 export interface DeviceState {
   DeviceName: {
@@ -11,7 +11,7 @@ export interface DeviceState {
   };
   DeviceSerial: number;
   MaxCreatedAt: string;
-  CombinedState: string;
+  CombinedState: FullState;
 }
 
 export interface ParsedDeviceState {
@@ -34,7 +34,7 @@ export function parseDeviceState(s: DeviceState): ParsedDeviceState {
     DeviceSerial: s.DeviceSerial,
     MaxCreatedAt: new Date(s.MaxCreatedAt),
     DeviceStateNum: FlightState.STATELESS,
-    CombinedState: {},
+    CombinedState: s.CombinedState,
   };
 
   // Add the nullable values
@@ -45,12 +45,9 @@ export function parseDeviceState(s: DeviceState): ParsedDeviceState {
     outState.DeviceType = s.DeviceType.Int16;
   }
 
-  // Parse the combined state
-  outState.CombinedState = JSON.parse(s.CombinedState);
-
   // Check for a device type in the state
-  if (outState.DeviceType === null && outState.CombinedState[4]?.device) {
-    outState.DeviceType = outState.CombinedState[4]?.device;
+  if (outState.DeviceType === null && outState.CombinedState[4]?.Device) {
+    outState.DeviceType = outState.CombinedState[4]?.Device;
   }
 
   // Map to the device type name
@@ -65,15 +62,15 @@ export function parseDeviceState(s: DeviceState): ParsedDeviceState {
   let deviceState: null | FlightState = null;
   const fullState = outState.CombinedState;
   if (fullState[9]) {
-    deviceState = fullState[9].state;
+    deviceState = fullState[9].State;
   } else if (fullState[21]) {
-    deviceState = fullState[21].state;
+    deviceState = fullState[21].State;
   } else if (fullState[10]) {
-    deviceState = fullState[10].state;
+    deviceState = fullState[10].State;
   } else if (fullState[16]) {
-    deviceState = fullState[16].state;
+    deviceState = fullState[16].State;
   } else if (fullState[17]) {
-    deviceState = fullState[17].state;
+    deviceState = fullState[17].State;
   }
   if (deviceState !== null) {
     outState.DeviceState = `${FlightStateNames[deviceState] || 'UNKNOWN'} (${deviceState})`;
@@ -87,6 +84,7 @@ export function parseDeviceState(s: DeviceState): ParsedDeviceState {
  * List
  * @summary List devices (by default in the past 12 hours)
  * @tags Devices
+ * @contentType application/json
  */
 export type ListDevicesApi = {
   path: '/api/devices/';
@@ -95,24 +93,114 @@ export type ListDevicesApi = {
     all?: 'true' | 'false';
   };
   responses: {
-    
-    /**
-     * @contentType application/json
-     */
     200: {
       Success: boolean;
       Msg: string | null;
       Devices: DeviceState[];
       Count: number;
     };
-
-    
-    /**
-     * @contentType application/json
-     */
     500: {
       Success: boolean;
       Msg: string | null;
+    };
+  };
+};
+
+/**
+ * Patch
+ * @summary Update a device name or type
+ * @tags Devices
+ * @body.contentType application/json
+ * @contentType application/json
+ */
+export type PatchDeviceApi = {
+  path: '/api/devices/{id}/';
+  params: {
+    /**
+     * The serial number of the device to update
+     */
+    id: number;
+  };
+  method: 'PATCH';
+  body: {
+    Name?: string;
+    Type?: number;
+  };
+  responses: {
+    200: {
+      Success: boolean;
+      Msg: string;
+    };
+    500: {
+      Success: boolean;
+      Msg: string;
+    };
+  };
+};
+
+/**
+ * Delete
+ * @summary Delete a device
+ * @tags Devices
+ * @body.contentType application/json
+ * @contentType application/json
+ */
+export type DeleteDeviceApi = {
+  path: '/api/devices/{id}/';
+  params: {
+    /**
+     * The serial number of the device to update
+     */
+    id: number;
+  };
+  method: 'DELETE';
+  responses: {
+    200: {
+      Success: boolean;
+      Msg: string;
+    };
+    500: {
+      Success: boolean;
+      Msg: string;
+    };
+  };
+};
+
+/**
+ * Get
+ * @summary Get a device and the last 200 packets
+ * @tags Devices
+ * @body.contentType application/json
+ * @contentType application/json
+ */
+export type GetDeviceApi = {
+  path: '/api/devices/{id}/';
+  params: {
+    /**
+     * The serial number of the device to update
+     */
+    id: number;
+  };
+  method: 'GET';
+  responses: {
+    200: {
+      Success: boolean;
+      Msg: string;
+      Serial: number;
+      CreatedAt: string;
+      Name: {
+        String: string;
+        Valid: boolean;
+      };
+      DeviceType: {
+        Int16: number;
+        Valid: boolean;
+      };
+      Packets: AltusPacket[];
+    };
+    500: {
+      Success: boolean;
+      Msg: string;
     };
   };
 };

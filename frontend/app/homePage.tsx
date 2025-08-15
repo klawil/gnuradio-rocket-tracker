@@ -66,7 +66,7 @@ function MapMarker({
 }: Readonly<{
   device: ParsedDeviceState;
 }>) {
-  if (!device.CombinedState[5]?.locked) {
+  if (!device.CombinedState[5]?.Locked) {
     console.log('klawil', 'Did not render device', device);
     return <></>;
   }
@@ -79,8 +79,8 @@ function MapMarker({
   return <Marker
     opacity={opacity}
     position={[
-      device.CombinedState[5].latitude,
-      device.CombinedState[5].longitude,
+      device.CombinedState[5].Latitude,
+      device.CombinedState[5].Longitude,
     ]}
     icon={L.icon({
       iconUrl: `/icons/${iconPath}`,
@@ -104,10 +104,10 @@ function CenterDevice({
 
   useEffect(() => {
     if (center !== null) {
-      if (center.CombinedState[5]?.locked) {
+      if (center.CombinedState[5]?.Locked) {
         map.setView([
-          center.CombinedState[5].latitude,
-          center.CombinedState[5].longitude,
+          center.CombinedState[5].Latitude,
+          center.CombinedState[5].Longitude,
         ])
       }
 
@@ -178,7 +178,7 @@ export default function HomePage() {
 
   // const hasDevices = !isLoading && devices !== null && devices.length > 0;
   const hasGpsDevices = !isLoading && devices !== null
-    && devices.find(dev => dev.CombinedState[5]?.locked);
+    && devices.find(dev => dev.CombinedState[5]?.Locked);
 
   const userLoc = useUserLocation();
   const resetCenter = () => {
@@ -197,8 +197,8 @@ export default function HomePage() {
             ? userLoc
             : hasGpsDevices
               ? [
-                hasGpsDevices.CombinedState[5]?.latitude || initMapCenter[0],
-                hasGpsDevices.CombinedState[5]?.longitude || initMapCenter[1],
+                hasGpsDevices.CombinedState[5]?.Latitude || initMapCenter[0],
+                hasGpsDevices.CombinedState[5]?.Longitude || initMapCenter[1],
               ]
               : initMapCenter}
           zoom={14}
@@ -218,7 +218,7 @@ export default function HomePage() {
             url='/osm/tile/{z}/{x}/{y}.png'
           />
           {devices !== null && devices
-            .filter(device => device.CombinedState[5]?.locked)
+            .filter(device => device.CombinedState[5]?.Locked)
             .map(device => <MapMarker device={device} key={device.DeviceSerial} />)
           }
           {userLoc !== null && <CircleMarker

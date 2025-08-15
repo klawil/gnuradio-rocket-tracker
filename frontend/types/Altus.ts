@@ -48,156 +48,166 @@ export const DeviceTypes = {
 } as const;
 
 interface BasePacketData {
-  serial: number;
-  freq: number;
-  type: number;
-  rtime: number;
-  time: number;
-  raw: string;
+  Serial: number;
+  Freq: number;
+  RTime: number;
+  Time: number;
+  Raw: string;
 }
 
 interface AltosTelemetrySensor extends BasePacketData {
-  ground_accel?: number;
-  accel_plus_g?: number;
-  accel_minus_g?: number;
-  accel?: number;
-  grd_press: number;
-  press: number;
-  temp: number;
-  apogee?: number;
-  main?: number;
-  height: number;
-  speed: number;
-  accel2: number;
+  Type: 1 | 2 | 3;
+  GroundAccel?: number;
+  AccelPlusG?: number;
+  AccelMinusG?: number;
+  Accelerometer?: number;
+  GrdPress: number;
+  Press: number;
+  Temp: number;
+  ApogeeVolts?: number;
+  MainVolts?: number;
+  Height: number;
+  Speed: number;
+  Accel: number;
 }
 
 interface AltosTelemetryConfiguration extends BasePacketData {
-  device: keyof typeof DeviceTypes;
-  flight: number;
-  conf_maj: number;
-  conf_min: number;
-  apo_delay: number;
-  main_deploy: number;
-  v_batt: number;
-  max_log: number;
-  callsign: string;
-  version: string;
+  Type: 4;
+  Device: keyof typeof DeviceTypes;
+  Flight: number;
+  ConfMaj: number;
+  ConfMin: number;
+  ApoDelay?: number;
+  MainAlt?: number;
+  BattV?: number;
+  MaxLog: number;
+  Callsign: string;
+  Version: string;
 }
 
 interface AltosTelemetryLocation extends BasePacketData {
-  nsat: number;
-  locked: boolean;
-  connected: boolean;
-  mode: number; // @TODO
-  altitude: number;
-  latitude: number;
-  longitude: number;
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-  pdop: number;
-  hdop: number;
-  vdop: number;
-  ground_speed: number;
-  climb_rate: number;
-  course: number;
+  Type: 5;
+  NSat: number;
+  Locked: boolean;
+  Connected: boolean;
+  Mode: number; // @TODO
+  Altitude: number;
+  Latitude: number;
+  Longitude: number;
+  Year: number;
+  Month: number;
+  Day: number;
+  Hour: number;
+  Minute: number;
+  Second: number;
+  PDop: number;
+  HDop: number;
+  VDop: number;
+  GroundSpeed: number;
+  ClimbRate: number;
+  Course: number;
 }
 
 interface AltosTelemetrySatellite extends BasePacketData {
-  stats: {
-    svid: number;
-    c_n_1: number;
+  Type: 6;
+  Sats: {
+    SVID: number;
+    C_N_1: number;
   }[];
-  channels: number;
+  Channels: number;
 }
 
 interface AltosTelemetryCompanion extends BasePacketData {
-  board_id: number; // @TODO
-  update_period: number;
-  data: number[];
-  channels: number;
+  Type: 7;
+  BoardId: number; // @TODO
+  UpdatePeriod: number;
+  Data: number[];
+  Channels: number;
 }
 
 interface AltosTelemetryMegaSensor extends BasePacketData {
-  accel_across: number;
-  accel_along: number;
-  accel_through: number;
-  gyro_roll: number;
-  gyro_pitch: number;
-  gyro_yaw: number;
-  mag_across: number;
-  mag_along: number;
-  mag_through: number;
-  orient: number;
-  accel: number;
-  pres: number;
-  temp: number;
+  Type: 8 | 18;
+  AccelAcross: number;
+  AccelAlong: number;
+  AccelThrough: number;
+  GyroRoll: number;
+  GyroPitch: number;
+  GyroYaw: number;
+  MagAcross: number;
+  MagAlong: number;
+  MagThrough: number;
+  Orient: number;
+  Accel: number;
+  Pres: number;
+  Temp: number;
 }
 
 interface AltosTelemetryMegaData extends BasePacketData {
-  pyro: number[];
-  state: FlightState;
-  v_batt: number;
-  v_pyro: number;
-  ground_pres: number;
-  ground_accel: number;
-  accel_plus_g: number;
-  accel_minus_g: number;
-  accel: number;
-  speed: number;
-  height: number;
+  Type: 9 | 21;
+  Pyro: number[];
+  State: FlightState;
+  BattV: number;
+  PyroV: number;
+  GroundPres: number;
+  GroundAccel: number;
+  AccelPlusG: number;
+  AccelMinusG: number;
+  Accel: number;
+  Speed: number;
+  Height: number;
 }
 
 interface AltosTelemetryMetrumSensor extends BasePacketData {
-  state: FlightState;
-  accel: number;
-  pres: number;
-  temp: number;
-  acceleration: number;
-  speed: number;
-  height: number;
-  v_batt: number;
-  sense_a: number;
-  sense_m: number;
+  Type: 10;
+  State: FlightState;
+  Accelerometer: number;
+  Pres: number;
+  Temp: number;
+  Accel: number;
+  Speed: number;
+  Height: number;
+  BattV: number;
+  ApogeeVolts: number;
+  MainVolts: number;
 }
 
 interface AltosTelemetryMetrumData extends BasePacketData {
-  ground_pres: number;
-  ground_accel: number;
-  accel_plus_g: number;
-  accel_minus_g: number;
+  Type: 11;
+  GroundPres: number;
+  GroundAccel: number;
+  AccelPlusG: number;
+  AccelMinusG: number;
 }
 
 interface AltosTelemetryMini extends BasePacketData {
-  state: FlightState;
-  v_batt: number;
-  sense_a: number;
-  sense_m: number;
-  pres: number;
-  temp: number;
-  acceleration: number;
-  speed: number;
-  height: number;
-  ground_pres: number;
+  Type: 16 | 17;
+  State: FlightState;
+  BattV: number;
+  ApogeeVolts: number;
+  MainVolts: number;
+  Pres: number;
+  Temp: number;
+  Accel: number;
+  Speed: number;
+  Height: number;
+  GroundPres: number;
 }
 
 interface AltosTelemetryMegaNorm extends BasePacketData {
-  orient: number;
-  accel: number;
-  pres: number;
-  temp: number;
-  accel_along: number;
-  accel_across: number;
-  accel_through: number;
-  gyro_roll: number;
-  gyro_pitch: number;
-  gyro_yaw: number;
-  mag_along: number;
-  mag_across: number;
-  mag_through: number;
+  Type: 19 | 20;
+  Orient: number;
+  Accel: number;
+  Pres: number;
+  Temp: number;
+  AccelAlong: number;
+  AccelAcross: number;
+  AccelThrough: number;
+  GyroRoll: number;
+  GyroPitch: number;
+  GyroYaw: number;
+  MagAlong: number;
+  MagAcross: number;
+  MagThrough: number;
 }
 
 export interface FullState {
@@ -219,3 +229,7 @@ export interface FullState {
   '20'?: AltosTelemetryMegaNorm;
   '21'?: AltosTelemetryMegaData;
 }
+
+export type AltusPacket = AltosTelemetrySensor | AltosTelemetryConfiguration | AltosTelemetryLocation
+  | AltosTelemetrySatellite | AltosTelemetryCompanion | AltosTelemetryMegaSensor | AltosTelemetryMegaData
+  | AltosTelemetryMetrumSensor | AltosTelemetryMetrumData | AltosTelemetryMini | AltosTelemetryMegaNorm;

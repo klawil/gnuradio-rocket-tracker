@@ -2,7 +2,8 @@
 # Project setup
 ########################################################################
 
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.28)
+cmake_policy(SET CMP0148 OLD)
 SET(CMAKE_CXX_STANDARD 20)
 
 project(AltusTracker LANGUAGES CXX C VERSION "0.0.1")

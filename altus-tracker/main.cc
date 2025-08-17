@@ -312,6 +312,7 @@ int main(int argc, char **argv) {
     ("socket", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
     ("port", po::value<uint16_t>(), "Socket port to connect to (default 8765)")
     ("channels", po::value<uint8_t>(),  "Number of channels to monitor (max 10)")
+    ("save_samples", "Save the samples to a data file")
     ("throttle", "Throttle (only applies to file source)");
 
   po::variables_map vm;
@@ -369,12 +370,14 @@ int main(int argc, char **argv) {
     source = osmo_source;
     std::cout << "Radio source " << input_center_freq << "\n";
 
-    gr::blocks::file_sink::sptr file = gr::blocks::file_sink::make(
-      sizeof(gr_complex),
-      data_file,
-      false
-    );
-    tb->connect(source, 0, file, 0);
+    if (vm.count("save_samples")) {
+      gr::blocks::file_sink::sptr file = gr::blocks::file_sink::make(
+        sizeof(gr_complex),
+        data_file,
+        false
+      );
+      tb->connect(source, 0, file, 0);
+    }
   }
 
   // Generate all of the channel blocks

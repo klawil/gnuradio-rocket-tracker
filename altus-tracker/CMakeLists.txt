@@ -2,8 +2,7 @@
 # Project setup
 ########################################################################
 
-cmake_minimum_required(VERSION 3.30)
-cmake_policy(SET CMP0148 OLD)
+cmake_minimum_required(VERSION 3.25)
 SET(CMAKE_CXX_STANDARD 20)
 
 project(AltusTracker LANGUAGES CXX C VERSION "0.0.1")
@@ -146,13 +145,13 @@ message(STATUS "Gnuradio Version is: " ${Gnuradio_VERSION})
 
 # add_definitions(-DENABLE_PERFORMANCE_COUNTERS=True)
 
-find_package(SoapySDR "0.7.2" NO_MODULE)
-if(SoapySDR_FOUND)
-	message(STATUS "SoapySDR found, version: ${SoapySDR_VERSION}")
-	# include_directories(${SoapySDR_INCLUDE_DIRS})
-	# list(APPEND SDR_LIBRARIES ${SoapySDR_LIBRARIES})
-	# ADD_DEFINITIONS(-DSOAPYSDR)
-endif()
+# find_package(SoapySDR "0.7.2" NO_MODULE)
+# if(SoapySDR_FOUND)
+# 	message(STATUS "SoapySDR found, version: ${SoapySDR_VERSION}")
+# 	# include_directories(${SoapySDR_INCLUDE_DIRS})
+# 	# list(APPEND SDR_LIBRARIES ${SoapySDR_LIBRARIES})
+# 	# ADD_DEFINITIONS(-DSOAPYSDR)
+# endif()
 
 ########################################################################
 # Setup the include and linker paths
@@ -181,11 +180,11 @@ set(CMAKE_CXX_FLAGS_DEBUG "-Wall -Wno-unused-local-typedef -Wno-deprecated-decla
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread -Wno-narrowing -fvisibility=hidden -fPIC")
 
 list(APPEND altus_tracker_sources
-  altus-tracker/blocks/altus_decoder.cc
-  altus-tracker/blocks/altus_channel.cc
-  altus-tracker/blocks/altus_power_level.cc
-  altus-tracker/blocks/altus_detector.cc
-  altus-tracker/altus_packet.cc
+  source/blocks/altus_decoder.cc
+  source/blocks/altus_channel.cc
+  source/blocks/altus_power_level.cc
+  source/blocks/altus_detector.cc
+  source/altus_packet.cc
 )
 
 # list(APPEND altus_tracker_headers)
@@ -210,7 +209,7 @@ include(GNUInstallDirs)
 #     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}/altus-tracker
 # )
     
-install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/altus-tracker/" # source directory
+install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/source/" # source directory
     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/altus-tracker" # target directory
     FILES_MATCHING # install only matched files
     PATTERN "*.h" # select header files
@@ -220,7 +219,7 @@ install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/altus-tracker/" # source director
 #     DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/trunk-recorder" # target directory
 # )
 
-add_executable(altus-tracker altus-tracker/main.cc) # ${trunk_recorder_sources})
+add_executable(altus-tracker source/main.cc) # ${trunk_recorder_sources})
 
 target_link_libraries(altus-tracker altus_tracker_library ${GNURADIO_ALL_LIBRARIES} ${Boost_LIBRARIES} ${GNURADIO_OSMOSDR_LIBRARIES})
 

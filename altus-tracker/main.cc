@@ -40,16 +40,15 @@ namespace po = boost::program_options;
 gr::top_block_sptr tb;
 bool running = true;
 
-// These stay constant
-const double sample_rate = 10000000;
+uint8_t channel_count = 5;
+double sample_rate = 10000000;
 // const double sample_rate = 2500000;
 const char * data_file = "../data.cfile";
 uint32_t input_center_freq = 434800000;
 // uint32_t input_center_freq = 435750000;
 
 gr::basic_block_sptr source;
-const int channel_count = 10;
-altus_channel_sptr channel_blocks[channel_count];
+altus_channel_sptr channel_blocks[MAX_CHANNELS];
 int channel_idx = 0;
 
 gr::block_sptr make_file_source(
@@ -129,8 +128,6 @@ void open_socket(std::string host, uint16_t port) {
     close(socket_conn);
     socket_conn = -1;
     return;
-  } else {
-    std::cout << "Socket opening in progress" << std::endl;
   }
 }
 
@@ -226,6 +223,8 @@ void process_queue(
         std::string msg = msg_value.str();
         write(socket_conn, msg.c_str(), msg.length());
         sent_message = true;
+      } else {
+        std::cout << "[WARN] Have " << packets_sent << " packet(s) but no socket" << std::endl;
       }
     }
     if (sent_message) {
@@ -299,38 +298,20 @@ void build_channel(uint32_t channel_freq) {
   if (channel_idx >= channel_count) {
     channel_idx = 0;
   }
-
-  // // Add the channel message
-  // if (socket_connected) {
-  //   std::stringstream msg;
-  //   msg << "c:" << channel_freq << "\n";
-
-  //   outgoing_messages_mutex.lock();
-  //   outgoing_messages.push_back(msg.str());
-  //   outgoing_messages_mutex.unlock();
-  // }
 }
 
 int main(int argc, char **argv) {
-  // uint8_t byte0 = 0x76;
-  // uint8_t byte1 = 0xf1;
-  // uint8_t byte2 = 0xa1;
-  // uint8_t byte3 = 0x16;
-  // uint32_t v1 = byte0 + (byte1 << 8) + (byte2 << 16) + (byte3 << 24);
-  // std::cout << "UInt: " << std::fixed << std::setprecision(0) << v1 << std::endl;
-  // std::cout << "Int: " << std::fixed << std::setprecision(0) << int32_t(v1) << std::endl;
-  // std::cout << "Float: " << std::fixed << std::setprecision(7) << (int32_t(v1) * 1e-7) << std::endl;
-  // return 0;
-
   po::options_description desc("Options");
   desc.add_options()
     ("help,h", "Help screen")
     ("version,v", "Version Information")
     ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
+    ("sample_rate,s", po::value<uint32_t>(), "Sample rate")
     ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
     ("socket", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
     ("port", po::value<uint16_t>(), "Socket port to connect to (default 8765)")
+    ("channels", po::value<uint8_t>(),  "Number of channels to monitor (max 10)")
     ("throttle", "Throttle (only applies to file source)");
 
   po::variables_map vm;
@@ -347,6 +328,24 @@ int main(int argc, char **argv) {
     std::cout << desc;
     return 0;
   }
+
+  if (vm.count("sample_rate")) {
+    sample_rate = double(vm["sample_rate"].as<uint32_t>());
+  }
+  if (vm.count("center_freq")) {
+    input_center_freq = vm["center_freq"].as<uint32_t>();
+  }
+  if (vm.count("channels")) {
+    channel_count = vm["channels"].as<uint8_t>();
+    if (channel_count > MAX_CHANNELS) {
+      channel_count = MAX_CHANNELS;
+    }
+  }
+
+  double min_channel_freq = input_center_freq - (sample_rate * 0.4);
+  double max_channel_freq = input_center_freq + (sample_rate * 0.4);
+  std::cout << "Channels from: " << std::fixed << std::setprecision(4) << (min_channel_freq / 1000000) << " - ";
+  std::cout << std::fixed << std::setprecision(4) << (max_channel_freq / 1000000) << " MHz" << std::endl;
 
   // Build the top block
   tb = gr::make_top_block("Altus");
@@ -379,16 +378,12 @@ int main(int argc, char **argv) {
   }
 
   // Generate all of the channel blocks
-  build_channel(434550000); // Ch 01
-  build_channel(434650000); // Ch 02
-  build_channel(434750000); // Ch 03
-  build_channel(434850000); // Ch 04
-  build_channel(434950000); // Ch 05
-  build_channel(435050000); // Ch 06
-  build_channel(435150000); // Ch 07
-  build_channel(435250000); // Ch 08
-  build_channel(435350000); // Ch 09
-  build_channel(435450000); // Ch 10
+  uint32_t channel_freq = uint32_t(min_channel_freq) + (ROUND_CHANNEL_TO / 2) - 1;
+  channel_freq -= channel_freq % ROUND_CHANNEL_TO;
+  for (uint8_t c = 0; c < channel_count; c++) {
+    build_channel(channel_freq);
+    channel_freq += ROUND_CHANNEL_TO * 2;
+  }
 
   // Parse the socket options
   std::string socket_host = "127.0.0.1";
@@ -408,7 +403,7 @@ int main(int argc, char **argv) {
   );
 
   // Build the detector
-  uint16_t fft_size = 2048 * 2;
+  uint16_t fft_size = 1024;
   auto b1 = make_altus_power_level(
     sample_rate,
     fft_size
@@ -419,7 +414,7 @@ int main(int argc, char **argv) {
     input_center_freq,
     sample_rate,
     fft_size,
-    5
+    channel_count
   );
   tb->connect(b1, 0, b2, 0);
 

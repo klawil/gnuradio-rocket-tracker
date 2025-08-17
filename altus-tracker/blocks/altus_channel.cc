@@ -36,8 +36,12 @@ void AltusChannel::handle_message(
 }
 
 void AltusChannel::set_channel(uint32_t c) {
-  std::cout << "Changing from " << std::fixed << std::setprecision(0) << channel_freq << " to ";
-  std::cout << std::setprecision(0) << std::fixed << c << std::endl;
+  if (channel_freq == c) {
+    std::cout << "Creating channel on " << std::fixed << std::setprecision(3) << (float(c) / 1000000) << std::endl;
+  } else {
+    std::cout << "Changing from " << std::fixed << std::setprecision(3) << (float(channel_freq) / 1000000) << " to ";
+    std::cout << std::fixed << std::setprecision(3) << (float(c) / 1000000) << std::endl;
+  }
   channel_freq = c;
 
   float channel_offset = channel_freq - center_freq;

@@ -31,7 +31,7 @@ AltusPowerLevel::AltusPowerLevel(
     sizeof(float) * fft_size
   )
 ) {
-  int one_in_n = input_sample_rate / fft_size / 30;
+  int one_in_n = input_sample_rate / fft_size / 100;
   static std::vector<float> window = gr::fft::window::blackman_harris(
     fft_size
   );

@@ -2,8 +2,7 @@
 #include <gnuradio/io_signature.h>
 #include <cmath>
 
-const int max_channel_width = 30000;
-const uint32_t round_channel_to = 50000;
+const int max_channel_width = 40000;
 
 namespace gr {
   namespace AltusDecoder {
@@ -48,9 +47,6 @@ namespace gr {
       samp_rate = sample_rate;
       fft_size = fft_size_p;
       total_channels = flex_channels;
-      if (total_channels > 10) {
-        total_channels = 10;
-      }
     }
 
     Detector::~Detector() {}
@@ -64,8 +60,8 @@ namespace gr {
     }
 
     uint32_t Detector::round_freq(uint32_t freq) {
-      uint32_t result = freq + (round_channel_to / 2) - 1;
-      result -= result % round_channel_to;
+      uint32_t result = freq + (ROUND_CHANNEL_TO / 2) - 1;
+      result -= result % ROUND_CHANNEL_TO;
       return result;
     }
 

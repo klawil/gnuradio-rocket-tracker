@@ -20,4 +20,10 @@
 // Number of bytes in an Altus message (32 bytes of data, 2 bytes checksum, 2 bytes terminator)
 #define BYTES_PER_MESSAGE 36
 
+// Max 10 channels per device monitoring
+#define MAX_CHANNELS 10
+
+// Round any discovered channel to this value (50kHz)
+#define ROUND_CHANNEL_TO 50000
+
 #endif

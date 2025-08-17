@@ -6,6 +6,8 @@
 
 #include <functional>
 
+#include "../constants.h"
+
 #ifdef gnuradio_Altus_Decoder_EXPORTS
 #define ALTUS_DECODER_API __GR_ATTR_EXPORT
 #else
@@ -28,7 +30,7 @@ namespace gr {
 
         uint32_t bucket_to_freq(int bucket);
         uint32_t round_freq(uint32_t freq);
-        uint32_t last_n_channels[10];
+        uint32_t last_n_channels[MAX_CHANNELS];
         int channel_idx = 0;
         int total_channels;
         float last_threshold;

@@ -21,6 +21,3 @@ FROM (
 	GROUP BY agg.device_serial
 ) current_state
 	LEFT JOIN public.devices ON current_state.device_serial = devices.serial;
-ALTER VIEW public.devices_state OWNER TO william;
-GRANT ALL ON public.devices_state TO rockettracker;
-GRANT ALL ON public.devices_state TO william;

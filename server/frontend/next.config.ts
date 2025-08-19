@@ -25,6 +25,8 @@ if (!process.env.PROD_BUILD) {
       ],
     };
   }
+} else {
+  nextConfig.distDir = '../build';
 }
 
 export default nextConfig;

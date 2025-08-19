@@ -43,6 +43,15 @@ const (
 var publicDir string
 var db *sql.DB
 
+func getMapTileServer() string {
+	envServer := os.Getenv("MAP_SERVER")
+	if envServer != "" {
+		return envServer
+	}
+
+	return "127.0.0.1:3334"
+}
+
 func downloadTiles(c chan downloadInfo, max uint16, taken *uint16, wg *sync.WaitGroup) {
 	defer wg.Done()
 
@@ -260,7 +269,8 @@ func Main(dbConn *sql.DB, staticDir string, wg *sync.WaitGroup) {
 		err := proxy.DoTimeout(
 			ctx,
 			fmt.Sprintf(
-				"http://127.0.0.1:3334/tile/%v/%v/%v.png",
+				"http://%s/tile/%v/%v/%v.png",
+				getMapTileServer(),
 				ctx.Params("z"),
 				ctx.Params("x"),
 				ctx.Params("y"),

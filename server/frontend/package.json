@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "PROD_BUILD=y next build",
+    "build": "tsx documentApi.ts && PROD_BUILD=y next build",
     "start": "next start",
     "lint": "next lint"
   },
@@ -18,7 +18,8 @@
     "react-leaflet": "^5.0.0",
     "swagger-themes": "^1.4.3",
     "swagger-ui-dist": "^5.27.1",
-    "ts-oas": "^0.5.3"
+    "ts-oas": "^0.5.3",
+    "tsx": "^4.20.4"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",

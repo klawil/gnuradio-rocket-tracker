@@ -96,7 +96,7 @@ export type ListDevicesApi = {
     200: {
       Success: boolean;
       Msg: string | null;
-      Devices: DeviceState[];
+      Devices: DeviceState[] | null;
       Count: number;
     };
     500: {

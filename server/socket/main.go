@@ -176,7 +176,6 @@ func handleSource(conn net.Conn, db *sql.DB) {
 	baseLog.WithField("rcv", packetsReceived).Info("Total received")
 }
 
-var SendClientCommand = make(chan model.ClientCommand)
 var ReceiveNewPackets = make(chan model.BasePacket)
 
 func Main(db *sql.DB, wg *sync.WaitGroup) {

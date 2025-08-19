@@ -5,6 +5,3 @@ CREATE TABLE public.channels (
   frequency numeric(8, 4) NOT NULL,
   channel_name character varying(50)
 );
-ALTER TABLE public.channels OWNER TO william;
-GRANT ALL ON TABLE public.channels TO rockettracker;
-GRANT ALL ON TABLE public.channels TO william;

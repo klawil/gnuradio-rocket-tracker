@@ -146,7 +146,11 @@ export default function HomePage() {
         throw new Error(`Code: ${code}, Response: ${response}`);
       }
 
-      setDevices(response.Devices.map(d => parseDeviceState(d)));
+      if (response.Devices === null) {
+        setDevices([]);
+      } else {
+        setDevices(response.Devices.map(d => parseDeviceState(d)));
+      }
     } catch (e) {
       setDeviceErr(`${e}`);
       console.error('Error loading devices', e);

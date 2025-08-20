@@ -75,7 +75,7 @@ func main() {
 		log.WithError(err).Fatal("Failed to bring up database")
 	}
 	err = m.Up()
-	if err != nil {
+	if err != nil && err != migrate.ErrNoChange {
 		log.WithError(err).Fatal("Failed to run migration")
 	}
 

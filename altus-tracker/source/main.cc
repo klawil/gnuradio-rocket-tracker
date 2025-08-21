@@ -26,6 +26,7 @@
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <netdb.h>
 
 #include "constants.h"
 #include "blocks/altus_channel.h"
@@ -81,7 +82,7 @@ void signal_handler(int signal) {
   }
 }
 
-void open_socket(std::string host, uint16_t port) {
+void open_socket(std::string host, bool is_ip, uint16_t port) {
   // Check for already connected socket
   if (socket_connected) {
     std::cout << "Tried to open already open socket" << std::endl;
@@ -98,7 +99,25 @@ void open_socket(std::string host, uint16_t port) {
   struct sockaddr_in server_address;
   server_address.sin_family = AF_INET;
   server_address.sin_port = htons(port);
-  if (inet_pton(AF_INET, host.c_str(), &server_address.sin_addr) <= 0) {
+
+  // Parse a host name to IP
+  if (!is_ip) {
+    struct hostent *he = gethostbyname(host.c_str());
+    if (he == NULL) {
+      std::cout << "Failed to parse " << host << " into an IP: " << strerror(errno) << std::endl;
+      close(socket_conn);
+      socket_conn = -1;
+      return;
+    }
+    char *ip_addr = inet_ntoa((*((struct in_addr *) he->h_addr_list[0])));
+    std::cout << "Using IP " << ip_addr << std::endl;
+    if (inet_pton(AF_INET, ip_addr, &server_address.sin_addr) <= 0) {
+      std::cout << "Failed to set socket address to " << host << ": " << strerror(errno) << std::endl;
+      close(socket_conn);
+      socket_conn = -1;
+      return;
+    }
+  } else if (inet_pton(AF_INET, host.c_str(), &server_address.sin_addr) <= 0) {
     std::cout << "Failed to set socket address to " << host << ": " << strerror(errno) << std::endl;
     close(socket_conn);
     socket_conn = -1;
@@ -161,10 +180,11 @@ void handle_message() {
 
 void process_queue(
   std::string socket_host,
+  bool is_ip,
   uint16_t socket_port
 ) {
   // Set up the socket
-  open_socket(socket_host, socket_port);
+  open_socket(socket_host, is_ip, socket_port);
 
   while (running) {
     // Check for incoming messages
@@ -239,7 +259,7 @@ void process_queue(
           std::cout << "Ping after " << uint32_t(now.count() - last_message.count()) << std::endl;
           write(socket_conn, ping_message.c_str(), ping_message.length());
         } else if (socket_conn == -1) {
-          open_socket(socket_host, socket_port);
+          open_socket(socket_host, is_ip, socket_port);
         }
         last_message = now;
       }
@@ -306,9 +326,10 @@ int main(int argc, char **argv) {
     ("version,v", "Version Information")
     ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
     ("sample_rate,s", po::value<uint32_t>(), "Sample rate")
-    // ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
+    ("squelch", po::value<int8_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
-    ("socket", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
+    ("socket", po::value<std::string>(), "Socket host to connect to")
+    ("socket_ip", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
     ("port", po::value<uint16_t>(), "Socket port to connect to (default 8765)")
     ("channels", po::value<uint8_t>(),  "Number of channels to monitor (max 10)")
     ("save_samples", "Save the samples to a data file")
@@ -341,12 +362,20 @@ int main(int argc, char **argv) {
       channel_count = MAX_CHANNELS;
     }
   }
+  int8_t squelch = 60;
+  if (vm.count("squelch")) {
+    squelch = vm["squelch"].as<int8_t>();
+  }
 
   // Parse the socket options
   std::string socket_host = "127.0.0.1";
+  bool socket_host_is_ip = true;
   uint16_t socket_port = 8765;
   if (vm.count("socket")) {
     socket_host = vm["socket"].as<std::string>();
+    socket_host_is_ip = false;
+  } else if (vm.count("socket_ip")) {
+    socket_host = vm["socket_ip"].as<std::string>();
   }
   if (vm.count("port")) {
     socket_port = vm["port"].as<uint16_t>();
@@ -386,8 +415,13 @@ int main(int argc, char **argv) {
   std::cout << "  Number: " << std::fixed << std::setprecision(0) << channel_count << std::endl;
   std::cout << "  Min Freq: " << std::fixed << std::setprecision(4) << (float(min_channel_freq) / 1000000) << " MHz" << std::endl;
   std::cout << "  Max Freq: " << std::fixed << std::setprecision(4) << (float(max_channel_freq) / 1000000) << " MHz" << std::endl;
+  std::cout << "  Min Amplitude: " << std::fixed << std::setprecision(0) << squelch << " above noise" << std::endl;
   std::cout << std::endl << "Socket:" << std::endl;
-  std::cout << "  IP: " << socket_host << std::endl;
+  if (socket_host_is_ip) {
+    std::cout << "  IP: " << socket_host << std::endl;
+  } else {
+    std::cout << "  Host: " << socket_host << std::endl;
+  }
   std::cout << "  Port: " << std::fixed << std::setprecision(0) << socket_port << std::endl;
   std::cout << "**********" << std::endl;
 
@@ -433,6 +467,7 @@ int main(int argc, char **argv) {
   std::thread packet_writer (
     process_queue,
     socket_host,
+    socket_host_is_ip,
     socket_port
   );
 

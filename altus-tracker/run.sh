@@ -8,12 +8,9 @@ if [ "$SAMPLE_RATE" != "" ]; then
   cmd+=" --sample_rate $SAMPLE_RATE"
 fi
 if [ "$SOCKET_HOST" != "" ]; then
-  socket_ip=$(getent hosts $socket | awk '{ print $1 }' | head -n 1)
-  if [ "$socket_ip" != "" ]; then
-    cmd+=" --socket \"$socket_ip\""
-  fi
+  cmd+=" --socket \"$SOCKET_HOST\""
 elif [ "$SOCKET_IP" != "" ]; then
-  cmd+=" --socket \"$SOCKET_IP\""
+  cmd+=" --socket_ip \"$SOCKET_IP\""
 fi
 if [ "$SOCKET_PORT" != "" ]; then
   cmd+=" --port $SOCKET_PORT"
@@ -23,6 +20,9 @@ if [ "$INPUT_FILE" != "" ]; then
 fi
 if [ "$CHANNELS" != "" ]; then
   cmd+=" --channels $CHANNELS"
+fi
+if [ "$SQUELCH" != "" ]; then
+  cmd+=" --squelch $SQUELCH"
 fi
 
 echo "Command: $cmd"

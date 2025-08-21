@@ -92,8 +92,6 @@ namespace gr {
         }
         float threshold = (all_v + fft_size * last_threshold) / (fft_size * 2);
         last_threshold = threshold;
-        // threshold = -50;
-        // std::cout << "Threshold: " << std::fixed << std::setprecision(0) << threshold << std::endl;
 
         in = start_in;
         std::vector<peak_t> peaks;

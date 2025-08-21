@@ -16,14 +16,18 @@ namespace gr {
       uint32_t center_freq,
       double sample_rate,
       uint16_t fft_size,
-      int flex_channels
+      int flex_channels,
+      uint32_t min_channel,
+      uint32_t max_channel
     ) {
       return gnuradio::get_initial_sptr(new Detector(
         peak_callback,
         center_freq,
         sample_rate,
         fft_size,
-        flex_channels
+        flex_channels,
+        min_channel,
+        max_channel
       ));
     }
 
@@ -32,7 +36,9 @@ namespace gr {
       uint32_t center_freq,
       double sample_rate,
       uint16_t fft_size_p,
-      int flex_channels
+      int flex_channels,
+      uint32_t min_channel_f,
+      uint32_t max_channel_f
     ) : gr::block(
       "AltusDetector",
       gr::io_signature::make(
@@ -47,6 +53,8 @@ namespace gr {
       samp_rate = sample_rate;
       fft_size = fft_size_p;
       total_channels = flex_channels;
+      min_channel = min_channel_f;
+      max_channel = max_channel_f;
     }
 
     Detector::~Detector() {}
@@ -135,6 +143,9 @@ namespace gr {
           for (std::vector<peak_t>::iterator it = new_peaks.begin(); it != new_peaks.end(); it++) {
             peak_t peak = *it;
             uint32_t channel = round_freq(peak.freq);
+            if (channel < min_channel || channel > max_channel) {
+              continue;
+            }
             bool keep = true;
             for (int i = 0; i < total_channels; i++) {
               if (channel == last_n_channels[i]) {

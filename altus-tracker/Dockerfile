@@ -28,6 +28,6 @@ WORKDIR /app
 
 COPY run.sh .
 
-ENV HOME=/tmp
+RUN chmod +x run.sh
 
-CMD [ "/app/run.sh" ]
+CMD [ "/bin/bash", "/app/run.sh" ]

@@ -27,6 +27,8 @@ namespace gr {
         uint32_t center;
         double samp_rate;
         uint16_t fft_size;
+        uint32_t min_channel;
+        uint32_t max_channel;
 
         uint32_t bucket_to_freq(int bucket);
         uint32_t round_freq(uint32_t freq);
@@ -42,7 +44,9 @@ namespace gr {
           uint32_t center_freq,
           double sample_rate,
           uint16_t fft_size,
-          int flex_channels
+          int flex_channels,
+          uint32_t min_channel,
+          uint32_t max_channel
         );
 
         Detector(
@@ -50,7 +54,9 @@ namespace gr {
           uint32_t center_freq,
           double sample_rate,
           uint16_t fft_size,
-          int flex_channels
+          int flex_channels,
+          uint32_t min_channel,
+          uint32_t max_channel
         );
         ~Detector();
 

@@ -42,11 +42,9 @@ gr::top_block_sptr tb;
 bool running = true;
 
 uint8_t channel_count = 5;
+uint32_t input_center_freq = 435025000;
 double sample_rate = 10000000;
-// const double sample_rate = 2500000;
 const char * data_file = "../data.cfile";
-uint32_t input_center_freq = 434800000;
-// uint32_t input_center_freq = 435750000;
 
 gr::basic_block_sptr source;
 altus_channel_sptr channel_blocks[MAX_CHANNELS];
@@ -308,7 +306,7 @@ int main(int argc, char **argv) {
     ("version,v", "Version Information")
     ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
     ("sample_rate,s", po::value<uint32_t>(), "Sample rate")
-    ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
+    // ("squelch", po::value<int32_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
     ("socket", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
     ("port", po::value<uint16_t>(), "Socket port to connect to (default 8765)")
@@ -344,25 +342,67 @@ int main(int argc, char **argv) {
     }
   }
 
-  double min_channel_freq = input_center_freq - (sample_rate * 0.4);
-  double max_channel_freq = input_center_freq + (sample_rate * 0.4);
-  std::cout << "Channels from: " << std::fixed << std::setprecision(4) << (min_channel_freq / 1000000) << " - ";
-  std::cout << std::fixed << std::setprecision(4) << (max_channel_freq / 1000000) << " MHz" << std::endl;
+  // Parse the socket options
+  std::string socket_host = "127.0.0.1";
+  uint16_t socket_port = 8765;
+  if (vm.count("socket")) {
+    socket_host = vm["socket"].as<std::string>();
+  }
+  if (vm.count("port")) {
+    socket_port = vm["port"].as<uint16_t>();
+  }
+
+  // Parse the source options
+  std::string source_type = "sdr";
+  bool throttle = false;
+  bool save_samples = false;
+  if (vm.count("file")) {
+    data_file = vm["file"].as<std::string>().c_str();
+    source_type = "file";
+    throttle = vm.count("throttle") > 0;
+  } else {
+    save_samples = vm.count("save_samples") > 0;
+  }
+
+  uint32_t min_channel_freq = input_center_freq - (sample_rate * 0.4);
+  uint32_t max_channel_freq = input_center_freq + (sample_rate * 0.4);
+
+  std::cout << "**********" << std::endl << "SETTINGS" << std::endl;
+  std::cout << "Source: ";
+  if (source_type == "file") {
+    std::cout << data_file;
+    if (throttle) {
+      std::cout << " (throttled)";
+    }
+  } else {
+    std::cout << "SDR";
+    if (save_samples) {
+      std::cout << " (Samples Saved)";
+    }
+  }
+  std::cout << std::endl << "  Center Frequency: " << std::fixed << std::setprecision(4) << (float(input_center_freq) / 1000000) << " MHz";
+  std::cout << std::endl << "  Sample Rate: " << std::fixed << std::setprecision(4) << (sample_rate / 1000000) << " MHz";
+  std::cout << std::endl << std::endl << "Channels:" << std::endl;
+  std::cout << "  Number: " << std::fixed << std::setprecision(0) << channel_count << std::endl;
+  std::cout << "  Min Freq: " << std::fixed << std::setprecision(4) << (float(min_channel_freq) / 1000000) << " MHz" << std::endl;
+  std::cout << "  Max Freq: " << std::fixed << std::setprecision(4) << (float(max_channel_freq) / 1000000) << " MHz" << std::endl;
+  std::cout << std::endl << "Socket:" << std::endl;
+  std::cout << "  IP: " << socket_host << std::endl;
+  std::cout << "  Port: " << std::fixed << std::setprecision(0) << socket_port << std::endl;
+  std::cout << "**********" << std::endl;
 
   // Build the top block
   tb = gr::make_top_block("Altus");
 
   // Build the input
-  std::string source_type = "sdr";
-  if (vm.count("file")) {
+  if (source_type == "file") {
     data_file = vm["file"].as<std::string>().c_str();
     std::cout << "Using data from file " << data_file << "\n";
     source = make_file_source(
       tb,
       data_file,
-      vm.count("throttle") > 0
+      throttle
     );
-    source_type = "file";
   } else {
     osmosdr::source::sptr osmo_source = osmosdr::source::make();
     osmo_source->set_sample_rate(sample_rate);
@@ -371,7 +411,7 @@ int main(int argc, char **argv) {
     source = osmo_source;
     std::cout << "Radio source " << input_center_freq << "\n";
 
-    if (vm.count("save_samples")) {
+    if (save_samples) {
       gr::blocks::file_sink::sptr file = gr::blocks::file_sink::make(
         sizeof(gr_complex),
         data_file,
@@ -387,16 +427,6 @@ int main(int argc, char **argv) {
   for (uint8_t c = 0; c < channel_count; c++) {
     build_channel(channel_freq);
     channel_freq += ROUND_CHANNEL_TO * 2;
-  }
-
-  // Parse the socket options
-  std::string socket_host = "127.0.0.1";
-  uint16_t socket_port = 8765;
-  if (vm.count("socket")) {
-    socket_host = vm["socket"].as<std::string>();
-  }
-  if (vm.count("port")) {
-    socket_port = vm["port"].as<uint16_t>();
   }
 
   // Open the socket and wait for events
@@ -418,7 +448,9 @@ int main(int argc, char **argv) {
     input_center_freq,
     sample_rate,
     fft_size,
-    channel_count
+    channel_count,
+    min_channel_freq,
+    max_channel_freq
   );
   tb->connect(b1, 0, b2, 0);
 

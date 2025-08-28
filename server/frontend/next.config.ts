@@ -19,8 +19,8 @@ if (!process.env.PROD_BUILD) {
           destination: 'http://127.0.0.1:8080/tiles/:path*',
         },
         {
-          source: '/osm/tile/:path*',
-          destination: 'http://127.0.0.1:3334/tile/:path*',
+          source: '/ws',
+          destination: 'http://127.0.0.1:8080/ws',
         },
       ],
     };

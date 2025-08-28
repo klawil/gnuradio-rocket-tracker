@@ -1,0 +1,17 @@
+.circleTd {
+  width: 21px !important;
+  padding-left: 0px !important;
+  padding-right: 0px !important;
+}
+
+.greenCircle {
+  color: green;
+}
+.redCircle {
+  color: red;
+}
+
+.map {
+  min-height: 25vh;
+  width: 100%;
+}

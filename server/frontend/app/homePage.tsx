@@ -1,128 +1,29 @@
 'use client';
 
-import L from 'leaflet';
-import { ListDevicesApi, ParsedDeviceState, parseDeviceState } from "@/types/DevicesApi";
+import { ListDevicesApi } from "@/types/DevicesApi";
 import { typeFetch } from "@/utils/typeFetch";
-import { useCallback, useEffect, useState } from "react";
-import { Col, Container, Form, Row, Spinner, Table } from "react-bootstrap";
+import { useCallback, useEffect, useReducer, useState } from "react";
+import { Button, Col, Container, Form, Row, Spinner, Table } from "react-bootstrap";
 import styles from './page.module.css';
 import 'leaflet/dist/leaflet.css';
 
-import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap } from "react-leaflet";
-import { FlightState } from "@/types/Altus";
+import { CircleMarker, MapContainer } from "react-leaflet";
 
 // Fix for default icon issues
-import icon from "leaflet/dist/images/marker-icon.png";
-import iconShadow from "leaflet/dist/images/marker-shadow.png";
-const DefaultIcon = L.icon({
-  iconUrl: icon as unknown as string,
-  shadowUrl: iconShadow as unknown as string,
-});
-L.Marker.prototype.options.icon = DefaultIcon;
-
-const fadeTime = 15 * 60 * 1000;
-const flightStateIcons: {
-  [key in FlightState]: string;
-} = {
-  [0]: 'rocket.png',
-  [1]: 'rocket.png',
-  [2]: 'rocket-pad.png',
-  [3]: 'rocket-boost.png',
-  [4]: 'rocket-fast.png',
-  [5]: 'rocket-coast.png',
-  [6]: 'rocket-drogue.png',
-  [7]: 'rocket-main.png',
-  [8]: 'rocket-landed.png',
-  [9]: 'rocket.png',
-  [10]: 'rocket.png',
-};
+import { deviceListReducer, DeviceState } from '@/utils/device';
+import { CenterDevice, MapMarker, TileLayers, useUserLocation } from '@/utils/map';
+import { useMessaging } from "@/utils/ws";
 
 const initMapCenter: [ number, number ] = [
   40.8444,
   -119.1123,
 ];
 
-function useUserLocation(): [ number, number ] | null {
-  const [ loc, setLoc ] = useState<[number, number] | null>(null);
-
-  useEffect(() => {
-    navigator.geolocation.watchPosition(
-      pos => setLoc([
-        pos.coords.latitude,
-        pos.coords.longitude,
-      ]),
-      err => console.error(`Error getting location`, err),
-      {
-        enableHighAccuracy: true,
-      },
-    );
-  }, []);
-
-  return loc;
-}
-
-function MapMarker({
-  device,
-}: Readonly<{
-  device: ParsedDeviceState;
-}>) {
-  if (!device.CombinedState[5]?.Locked) {
-    console.log('klawil', 'Did not render device', device);
-    return <></>;
-  }
-
-  const opacity = Date.now() - device.MaxCreatedAt.getTime() >= fadeTime
-    ? 0.5
-    : 1;
-  const iconPath = flightStateIcons[device.DeviceStateNum];
-
-  return <Marker
-    opacity={opacity}
-    position={[
-      device.CombinedState[5].Latitude,
-      device.CombinedState[5].Longitude,
-    ]}
-    icon={L.icon({
-      iconUrl: `/icons/${iconPath}`,
-      iconSize: [ 20, 20 ],
-      iconAnchor: [ 10, 10 ],
-      popupAnchor: [ 0, -5 ],
-    })}
-  >
-    <Popup>Test</Popup>
-  </Marker>;
-}
-
-function CenterDevice({
-  center,
-  setCenter,
-}: Readonly<{
-  center: ParsedDeviceState | null;
-  setCenter: () => void,
-}>) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (center !== null) {
-      if (center.CombinedState[5]?.Locked) {
-        map.setView([
-          center.CombinedState[5].Latitude,
-          center.CombinedState[5].Longitude,
-        ])
-      }
-
-      setCenter();
-    }
-  }, [ map, center, setCenter ]);
-
-  return <></>;
-}
-
 export default function HomePage() {
   const [ isLoading, setIsLoading ] = useState<boolean>(false);
-  const [ devices, setDevices ] = useState<ParsedDeviceState[] | null>(null);
+  const [ devices, dispatchDevices ] = useReducer(deviceListReducer, []);
   const [ deviceErr, setDeviceErr ] = useState<string | null>(null);
-  const [ centerDev, setCenterDev ] = useState<ParsedDeviceState | null>(null);
+  const [ centerDev, setCenterDev ] = useState<DeviceState | null>(null);
   const [ loadAll, setLoadAll ] = useState<boolean>(false);
 
   const loadDevices = useCallback(async (loadAll: boolean = false) => {
@@ -146,10 +47,13 @@ export default function HomePage() {
         throw new Error(`Code: ${code}, Response: ${response}`);
       }
 
-      if (response.Devices === null) {
-        setDevices([]);
-      } else {
-        setDevices(response.Devices.map(d => parseDeviceState(d)));
+      if (response.Devices !== null) {
+        response.Devices.map(d => dispatchDevices({
+          Type: 0,
+          DeviceName: d.DeviceName,
+          Serial: d.DeviceSerial,
+          CombinedState: d.CombinedState,
+        }))
       }
     } catch (e) {
       setDeviceErr(`${e}`);
@@ -157,6 +61,14 @@ export default function HomePage() {
     }
     setIsLoading(false);
   }, []);
+
+  const [ popMessage ] = useMessaging('LOCATION', 0);
+  useEffect(() => {
+    const message = popMessage();
+    if (typeof message !== 'undefined') {
+      dispatchDevices(message);
+    }
+  }, [ popMessage, ]);
 
   useEffect(() => {
     if (
@@ -182,7 +94,7 @@ export default function HomePage() {
 
   // const hasDevices = !isLoading && devices !== null && devices.length > 0;
   const hasGpsDevices = !isLoading && devices !== null
-    && devices.find(dev => dev.CombinedState[5]?.Locked);
+    && devices.find(dev => dev.Location.LastUpdate !== null && dev.Location.Locked);
 
   const userLoc = useUserLocation();
   const resetCenter = () => {
@@ -201,29 +113,18 @@ export default function HomePage() {
             ? userLoc
             : hasGpsDevices
               ? [
-                hasGpsDevices.CombinedState[5]?.Latitude || initMapCenter[0],
-                hasGpsDevices.CombinedState[5]?.Longitude || initMapCenter[1],
+                hasGpsDevices.Location.Latitude || initMapCenter[0],
+                hasGpsDevices.Location.Longitude || initMapCenter[1],
               ]
               : initMapCenter}
           zoom={14}
           maxZoom={20}
           // minZoom={14}
         >
-          <TileLayer
-            maxZoom={18}
-            // minZoom={14}
-            attribution='Imagery &copy; Esri'
-            url='/tiles/{z}-{y}-{x}.png'
-          />
-          <TileLayer
-            maxZoom={20}
-            // minZoom={14}
-		        attribution='Streets &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-            url='/osm/tile/{z}/{x}/{y}.png'
-          />
+          <TileLayers />
           {devices !== null && devices
-            .filter(device => device.CombinedState[5]?.Locked)
-            .map(device => <MapMarker device={device} key={device.DeviceSerial} />)
+            .filter(device => device.Location.Locked)
+            .map(device => <MapMarker device={device} key={device.Serial} />)
           }
           {userLoc !== null && <CircleMarker
             center={userLoc}
@@ -260,20 +161,23 @@ export default function HomePage() {
             <th>Type</th>
             <th>State</th>
             <th>Last Seen</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
           {isLoading && <tr><td className="p-4" colSpan={100}><Spinner /></td></tr>}
           {showErr && <tr><td className="pt-2 pb-2 text-danger" colSpan={100}>{ errMsg }</td></tr>}
           {!isLoading && devices !== null && devices.length > 0 && devices.map(device => (<tr
-            key={device.DeviceSerial}
+            key={device.Serial}
             onClick={() => setCenterDev(device)}
+            className='align-middle'
           >
-            <td>{ device.DeviceSerial }</td>
-            <td>{ device.DeviceName || 'N/A' }</td>
-            <td>{ device.DeviceTypeName || 'N/A' } ({ device.DeviceType || 'N/A' })</td>
-            <td>{ device.DeviceState || 'UNKNOWN' }</td>
-            <td>{ device.MaxCreatedAt.toLocaleString() }</td>
+            <td>{ device.Serial }</td>
+            <td>{ device.Name || 'N/A' }</td>
+            <td>{ device.Config.DeviceName || 'N/A' } ({ device.Config.Device || 'N/A' })</td>
+            <td>{ device.State.Name || 'UNKNOWN' }</td>
+            <td>{ device.LastSeen.toLocaleString() }</td>
+            <td><Button href={`/device?serial=${device.Serial}`}>Track</Button></td>
           </tr>))}
         </tbody>
       </Table>

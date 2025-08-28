@@ -26,6 +26,7 @@ export const FlightStateNames = {
 } as const;
 
 export const DeviceTypes = {
+  [0x0000]: 'UNKNOWN',
   [0x000a]: 'AltusMetrum',
   [0x000b]: 'TeleMetrum',
   [0x000c]: 'TeleDongle',
@@ -56,7 +57,7 @@ interface BasePacketData {
 }
 
 interface AltosTelemetrySensor extends BasePacketData {
-  Type: 1 | 2 | 3;
+  Type: 1 | 2 | 3; // 0x01, 0x02, 0x03
   GroundAccel?: number;
   AccelPlusG?: number;
   AccelMinusG?: number;
@@ -72,7 +73,7 @@ interface AltosTelemetrySensor extends BasePacketData {
 }
 
 interface AltosTelemetryConfiguration extends BasePacketData {
-  Type: 4;
+  Type: 4; // 0x04
   Device: keyof typeof DeviceTypes;
   Flight: number;
   ConfMaj: number;
@@ -86,7 +87,7 @@ interface AltosTelemetryConfiguration extends BasePacketData {
 }
 
 interface AltosTelemetryLocation extends BasePacketData {
-  Type: 5;
+  Type: 5; // 0x05
   NSat: number;
   Locked: boolean;
   Connected: boolean;
@@ -109,7 +110,7 @@ interface AltosTelemetryLocation extends BasePacketData {
 }
 
 interface AltosTelemetrySatellite extends BasePacketData {
-  Type: 6;
+  Type: 6; // 0x06
   Sats: {
     SVID: number;
     C_N_1: number;
@@ -118,15 +119,15 @@ interface AltosTelemetrySatellite extends BasePacketData {
 }
 
 interface AltosTelemetryCompanion extends BasePacketData {
-  Type: 7;
-  BoardId: number; // @TODO
+  Type: 7; // 0x07
+  BoardId: number;
   UpdatePeriod: number;
   Data: number[];
   Channels: number;
 }
 
 interface AltosTelemetryMegaSensor extends BasePacketData {
-  Type: 8 | 18;
+  Type: 8 | 18; // 0x08, 0x12
   AccelAcross: number;
   AccelAlong: number;
   AccelThrough: number;
@@ -143,7 +144,7 @@ interface AltosTelemetryMegaSensor extends BasePacketData {
 }
 
 interface AltosTelemetryMegaData extends BasePacketData {
-  Type: 9 | 21;
+  Type: 9 | 21; // 0x09, 0x15
   Pyro: number[];
   State: FlightState;
   BattV: number;
@@ -158,7 +159,7 @@ interface AltosTelemetryMegaData extends BasePacketData {
 }
 
 interface AltosTelemetryMetrumSensor extends BasePacketData {
-  Type: 10;
+  Type: 10; // 0x0A
   State: FlightState;
   Accelerometer: number;
   Pres: number;
@@ -172,7 +173,7 @@ interface AltosTelemetryMetrumSensor extends BasePacketData {
 }
 
 interface AltosTelemetryMetrumData extends BasePacketData {
-  Type: 11;
+  Type: 11; // 0x0B
   GroundPres: number;
   GroundAccel: number;
   AccelPlusG: number;
@@ -180,7 +181,7 @@ interface AltosTelemetryMetrumData extends BasePacketData {
 }
 
 interface AltosTelemetryMini extends BasePacketData {
-  Type: 16 | 17;
+  Type: 16 | 17; // 0x10, 0x11
   State: FlightState;
   BattV: number;
   ApogeeVolts: number;
@@ -194,7 +195,7 @@ interface AltosTelemetryMini extends BasePacketData {
 }
 
 interface AltosTelemetryMegaNorm extends BasePacketData {
-  Type: 19 | 20;
+  Type: 19 | 20; // 0x13, 0x14
   Orient: number;
   Accel: number;
   Pres: number;

@@ -64,19 +64,21 @@ func main() {
 	}
 
 	// Run the migrations
-	driver, err := postgres.WithInstance(db, &postgres.Config{})
-	if err != nil {
-		log.WithError(err).Fatal("Unable to get migrations driver")
-	}
-	m, err := migrate.NewWithDatabaseInstance(
-		"file:///src/db",
-		"postgres", driver)
-	if err != nil {
-		log.WithError(err).Fatal("Failed to bring up database")
-	}
-	err = m.Up()
-	if err != nil && err != migrate.ErrNoChange {
-		log.WithError(err).Fatal("Failed to run migration")
+	if os.Getenv("NO_MIGRATE") != "y" {
+		driver, err := postgres.WithInstance(db, &postgres.Config{})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to get migrations driver")
+		}
+		m, err := migrate.NewWithDatabaseInstance(
+			"file:///src/db",
+			"postgres", driver)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to bring up database")
+		}
+		err = m.Up()
+		if err != nil && err != migrate.ErrNoChange {
+			log.WithError(err).Fatal("Failed to run migration")
+		}
 	}
 
 	// Open and start the socket server

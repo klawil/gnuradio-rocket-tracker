@@ -166,10 +166,9 @@ type deviceApiResponse struct {
 	BaseApiResponse
 
 	Serial     uint32
-	CreatedAt  time.Time
 	Name       sql.NullString
 	DeviceType sql.NullInt16
-	Packets    []string
+	Packets    []interface{}
 }
 
 func getDevice(c *fiber.Ctx) error {
@@ -188,7 +187,7 @@ func getDevice(c *fiber.Ctx) error {
 
 	// Get the device table information
 	deviceRow, err := db.Query(
-		"SELECT serial, created_at, name, device_type FROM devices WHERE serial = $1",
+		"SELECT device_serial, device_name, device_type FROM devices_state WHERE device_serial = $1",
 		id,
 	)
 	if err != nil {
@@ -198,7 +197,6 @@ func getDevice(c *fiber.Ctx) error {
 	if deviceRow.Next() {
 		err = deviceRow.Scan(
 			&device.Serial,
-			&device.CreatedAt,
 			&device.Name,
 			&device.DeviceType,
 		)
@@ -219,10 +217,19 @@ func getDevice(c *fiber.Ctx) error {
 		return sendError(c, err)
 	}
 	for rows.Next() {
-		var packet string
-		err = rows.Scan(&packet)
+		var jsonStr []byte
+		err = rows.Scan(&jsonStr)
 		if err != nil {
 			log.WithError(err).Error("Failed to parse packet row")
+			return sendError(c, err)
+		}
+		var packet interface{}
+		err = json.Unmarshal(
+			jsonStr,
+			&packet,
+		)
+		if err != nil {
+			log.WithError(err).Error("Failed to parse packet row JSON")
 			return sendError(c, err)
 		}
 

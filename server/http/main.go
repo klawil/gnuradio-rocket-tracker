@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/proxy"
 	log "github.com/sirupsen/logrus"
@@ -243,7 +244,13 @@ func Main(dbConn *sql.DB, staticDir string, wg *sync.WaitGroup) {
 	db = dbConn
 	publicDir = staticDir
 
+	go runHub()
+
 	app := fiber.New()
+
+	// Websocket API
+	app.Use("/ws", wsMiddleware)
+	app.Get("/ws", websocket.New(handleWs))
 
 	// app.Get("/api/clients", getClients)
 	app.Get("/api/map/download", downloadMapApi)

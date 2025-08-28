@@ -7,6 +7,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"rocket_server/http"
 	"rocket_server/model"
 	"strconv"
 	"strings"
@@ -123,6 +124,10 @@ func parseLine(message string, db *sql.DB, source Source) {
 		if err != nil {
 			baseLog.WithError(err).Error("Failed to insert packet")
 		}
+		http.Broadcast <- http.WsMessage{
+			BasePacket: packet,
+			RawJson:    message,
+		}
 	}
 }
 
@@ -175,8 +180,6 @@ func handleSource(conn net.Conn, db *sql.DB) {
 
 	baseLog.WithField("rcv", packetsReceived).Info("Total received")
 }
-
-var ReceiveNewPackets = make(chan model.BasePacket)
 
 func Main(db *sql.DB, wg *sync.WaitGroup) {
 	defer wg.Done()

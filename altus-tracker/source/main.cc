@@ -328,6 +328,7 @@ int main(int argc, char **argv) {
     ("sample_rate,s", po::value<uint32_t>(), "Sample rate")
     ("squelch", po::value<int8_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
+    ("source", po::value<std::string>(), "OSMO SDR source to use")
     ("socket", po::value<std::string>(), "Socket host to connect to")
     ("socket_ip", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
     ("port", po::value<uint16_t>(), "Socket port to connect to (default 8765)")
@@ -385,12 +386,16 @@ int main(int argc, char **argv) {
   std::string source_type = "sdr";
   bool throttle = false;
   bool save_samples = false;
+  std::string source_string = "";
   if (vm.count("file")) {
     data_file = vm["file"].as<std::string>().c_str();
     source_type = "file";
     throttle = vm.count("throttle") > 0;
   } else {
     save_samples = vm.count("save_samples") > 0;
+    if (vm.count("source")) {
+      source_string = vm["source"].as<std::string>();
+    }
   }
 
   uint32_t min_channel_freq = input_center_freq - (sample_rate * 0.4);
@@ -407,6 +412,9 @@ int main(int argc, char **argv) {
     std::cout << "SDR";
     if (save_samples) {
       std::cout << " (Samples Saved)";
+    }
+    if (source_string != "") {
+      std::cout << ": " << source_string;
     }
   }
   std::cout << std::endl << "  Center Frequency: " << std::fixed << std::setprecision(4) << (float(input_center_freq) / 1000000) << " MHz";
@@ -438,7 +446,12 @@ int main(int argc, char **argv) {
       throttle
     );
   } else {
-    osmosdr::source::sptr osmo_source = osmosdr::source::make();
+    osmosdr::source::sptr osmo_source;
+    if (source_string != "") {
+      osmo_source = osmosdr::source::make(source_string);
+    } else {
+      osmo_source = osmosdr::source::make();
+    }
     osmo_source->set_sample_rate(sample_rate);
     osmo_source->set_center_freq(input_center_freq);
     osmo_source->set_gain_mode(true);

@@ -24,6 +24,9 @@ fi
 if [ "$SQUELCH" != "" ]; then
   cmd+=" --squelch $SQUELCH"
 fi
+if [ "$SOURCE" != "" ]; then
+  cmd+=" --source \"$SOURCE\""
+fi
 
 echo "Command: $cmd"
 eval $cmd

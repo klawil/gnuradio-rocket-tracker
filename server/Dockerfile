@@ -21,7 +21,6 @@ RUN curl https://raw.githubusercontent.com/creationix/nvm/v0.40.3/install.sh | b
     && nvm install v22 \
     && nvm alias default v22 \
     && nvm use default \
-    && . ${HOME}/.nvm/nvm.sh \
     && npm install \
     && npm run build
 
@@ -34,7 +33,9 @@ RUN go build
 
 FROM ubuntu:24.04
 
-COPY --from=builder /src /src
+COPY --from=builder /src/rocket_server /src/rocket_server
+COPY --from=builder /src/build /src/build
+COPY --from=builder /src/db /src/db
 
 WORKDIR /src
 

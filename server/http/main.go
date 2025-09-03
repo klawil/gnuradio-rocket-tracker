@@ -321,7 +321,7 @@ func Main(dbConn *sql.DB, staticDir string, wg *sync.WaitGroup) {
 		)
 		if err != nil {
 			log.WithError(err).Error("Error forwarding request")
-			return ctx.Redirect("/icons/not-loaded-map.jpg", 302)
+			return ctx.Redirect(url, 302)
 		} else {
 			return nil
 		}

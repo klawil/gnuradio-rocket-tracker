@@ -55,16 +55,28 @@ export function useMessaging(
     ref.current = socket;
 
     const controller = new AbortController();
+    let lastEventTime = 0;
+    let localIsConn = false;
+
+    setInterval(() => {
+      if (!localIsConn || (Date.now() - lastEventTime) < (startRetryDelay * 1000)) {
+        return;
+      }
+
+      socket.send('ping');
+    }, 500);
 
     socket.addEventListener(
       'open',
       () => {
         setLastConnEvent(Date.now());
         setIsConnected(true);
+        localIsConn = true;
         socket.send(JSON.stringify({
           Type,
           ID,
         }));
+        lastEventTime = Date.now();
       },
       controller,
     );
@@ -77,6 +89,7 @@ export function useMessaging(
         if (payload === 'PING') return;
         const message = JSON.parse(payload) as AltusPacket;
         addMessage(message);
+        lastEventTime = Date.now();
       },
       controller,
     );

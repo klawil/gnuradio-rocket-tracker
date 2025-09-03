@@ -68,8 +68,10 @@ export function useUserLocation(): [ number, number ] | null {
 
 export function MapMarker({
   device,
+  children,
 }: Readonly<{
   device: DeviceState;
+  children?: React.ReactNode;
 }>) {
   if (!device.Location.Locked) {
     console.log('klawil', 'Did not render device', device);
@@ -94,7 +96,7 @@ export function MapMarker({
       popupAnchor: [ 0, -5 ],
     })}
   >
-    <Popup>Test</Popup>
+    <Popup>{children}</Popup>
   </Marker>;
 }
 
@@ -136,6 +138,12 @@ export function ZoomTwoDevices({
     if (
       map.getBounds().contains(point1) &&
       map.getBounds().contains(point2)
+    ) {
+      return;
+    }
+
+    if (
+      map.distance(point1, point2) > 10000
     ) {
       return;
     }

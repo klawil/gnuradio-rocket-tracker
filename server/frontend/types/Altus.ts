@@ -22,7 +22,7 @@ export const FlightStateNames = {
   [FlightState.MAIN]: 'Main',
   [FlightState.LANDED]: 'Landed',
   [FlightState.INVALID]: 'INVALID',
-  [FlightState.STATELESS]: 'STATELESS',
+  [FlightState.STATELESS]: '-',
 } as const;
 
 export const DeviceTypes = {

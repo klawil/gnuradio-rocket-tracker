@@ -102,7 +102,22 @@ interface InitAction {
   };
   Serial: number;
   CombinedState?: FullState;
-  StartPackets?: AltusPacket[];
+  Height?: {
+    Int32: number;
+    Valid: boolean;
+  };
+  Speed?: {
+    Int32: number;
+    Valid: boolean;
+  };
+  Accel?: {
+    Int32: number;
+    Valid: boolean;
+  };
+  Altitude?: {
+    Int32: number;
+    Valid: boolean;
+  };
 }
 
 function addPacketToState(state: DeviceState, action: AltusPacket) {
@@ -263,6 +278,20 @@ export function deviceReducer(state: DeviceState, action: AltusPacket | InitActi
       if (action.DeviceName.Valid) {
         newState.Name = action.DeviceName.String;
       }
+      newState.Serial = action.Serial;
+
+      if (action.Height?.Valid) {
+        newState.Maximums.Height = action.Height.Int32;
+      }
+      if (action.Accel?.Valid) {
+        newState.Maximums.Accel = action.Accel.Int32;
+      }
+      if (action.Altitude?.Valid) {
+        newState.Maximums.Altitude = action.Altitude.Int32;
+      }
+      if (action.Speed?.Valid) {
+        newState.Maximums.Speed = action.Speed.Int32;
+      }
 
       // Loop over the packets
       if (typeof action.CombinedState !== 'undefined') {
@@ -274,10 +303,6 @@ export function deviceReducer(state: DeviceState, action: AltusPacket | InitActi
           }
 
           newState = addPacketToState(newState, packet);
-        }
-      } else if (typeof action.StartPackets !== 'undefined') {
-        for (let i = action.StartPackets.length - 1; i >= 0; i--) {
-          newState = addPacketToState(newState, action.StartPackets[i]);
         }
       }
 

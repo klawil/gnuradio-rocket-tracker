@@ -30,9 +30,9 @@ func listDevices(c *fiber.Ctx) error {
 	var rows *sql.Rows
 	var err error
 	if c.QueryBool("all") {
-		rows, err = db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state FROM devices_state")
+		rows, err = db.Query("SELECT device_name, device_serial, max_created_at, combined_state FROM devices_state")
 	} else {
-		rows, err = db.Query("SELECT device_name, device_type, device_serial, max_created_at, combined_state FROM devices_state WHERE max_created_at >= timezone('utc', now()) - INTERVAL '12 days'")
+		rows, err = db.Query("SELECT device_name, device_serial, max_created_at, combined_state FROM devices_state WHERE max_created_at >= timezone('utc', now()) - INTERVAL '12 hours'")
 	}
 	if err != nil {
 		log.WithError(err).Error("Failed to query devices")
@@ -45,7 +45,6 @@ func listDevices(c *fiber.Ctx) error {
 		var jsonStr []byte
 		err = rows.Scan(
 			&device.DeviceName,
-			&device.DeviceType,
 			&device.DeviceSerial,
 			&device.MaxCreatedAt,
 			&jsonStr,
@@ -165,10 +164,15 @@ func deleteDevice(c *fiber.Ctx) error {
 type deviceApiResponse struct {
 	BaseApiResponse
 
-	Serial     uint32
-	Name       sql.NullString
-	DeviceType sql.NullInt16
-	Packets    []interface{}
+	Serial        uint32
+	Name          sql.NullString
+	DeviceType    sql.NullInt16
+	CombinedState interface{}
+	Packets       []interface{}
+	Height        sql.NullInt32
+	Speed         sql.NullInt32
+	Accel         sql.NullInt32
+	Altitude      sql.NullInt32
 }
 
 func getDevice(c *fiber.Ctx) error {
@@ -187,25 +191,60 @@ func getDevice(c *fiber.Ctx) error {
 
 	// Get the device table information
 	deviceRow, err := db.Query(
-		"SELECT device_serial, device_name, device_type FROM devices_state WHERE device_serial = $1",
+		"SELECT device_serial, device_name, min_created_at, combined_state FROM devices_state WHERE device_serial = $1",
 		id,
 	)
+	var min_created_at time.Time
 	if err != nil {
 		baseLog.WithError(err).Error("Failed to get device information")
 		return sendError(c, err)
 	}
 	if deviceRow.Next() {
+		var jsonStr []byte
 		err = deviceRow.Scan(
 			&device.Serial,
 			&device.Name,
-			&device.DeviceType,
+			&min_created_at,
+			&jsonStr,
 		)
 		if err != nil {
 			log.WithError(err).Error("Failed to parse device row")
 			return sendError(c, err)
 		}
+		err = json.Unmarshal(
+			jsonStr,
+			&device.CombinedState,
+		)
+		if err != nil {
+			log.WithError(err).Error("Failed to parse device row JSON")
+			return sendError(c, err)
+		}
 	}
 	deviceRow.Close()
+
+	// Get the max and most recent state
+	maxState, err := db.Query(
+		"SELECT MAX(CAST(packet_json->'Height' as integer)) as Height, MAX(CAST(packet_json->'Speed' as integer)) as Speed, MAX(CAST(packet_json->'Accel' as integer)) as Accel, MAX(CAST(packet_json->'Altitude' as integer)) as Altitude FROM packets WHERE CAST(packets.packet_json->'Serial' as integer) = $1 AND created_at >= $2",
+		id,
+		min_created_at,
+	)
+	if err != nil {
+		log.WithField("id", id).WithField("min", min_created_at).WithError(err).Error("Failed to get max states")
+		return sendError(c, err)
+	}
+	if maxState.Next() {
+		err = maxState.Scan(
+			&device.Height,
+			&device.Speed,
+			&device.Accel,
+			&device.Altitude,
+		)
+		if err != nil {
+			log.WithError(err).Error("Failed to parse device maximums")
+			return sendError(c, err)
+		}
+	}
+	maxState.Close()
 
 	// Get the packets
 	rows, err := db.Query(

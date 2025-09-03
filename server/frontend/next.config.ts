@@ -12,15 +12,15 @@ if (!process.env.PROD_BUILD) {
       fallback: [
         {
           source: '/api/:path*',
-          destination: 'http://127.0.0.1:8080/api/:path*',
+          destination: 'https://rocket-public.klawil.net/api/:path*',
         },
         {
           source: '/tiles/:path*',
-          destination: 'http://127.0.0.1:8080/tiles/:path*',
+          destination: 'https://rocket-public.klawil.net/tiles/:path*',
         },
         {
           source: '/ws',
-          destination: 'http://127.0.0.1:8080/ws',
+          destination: 'https://rocket-public.klawil.net/ws',
         },
       ],
     };

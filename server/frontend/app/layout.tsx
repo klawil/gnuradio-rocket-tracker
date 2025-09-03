@@ -2,7 +2,7 @@
 
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useEffect, useState } from "react";
-import { Container } from 'react-bootstrap';
+import Container from 'react-bootstrap/Container';
 
 function useDarkMode() {
   const [
@@ -46,7 +46,7 @@ export default function RootLayout({
     <html lang="en">
       <head><link rel='icon' type='image/png' href='/icons/rocket-pad.png' /></head>
       <body data-bs-theme="dark">
-        <Container fluid={true} className='text-center'>
+        <Container fluid={true}>
           {children}
         </Container>
       </body>

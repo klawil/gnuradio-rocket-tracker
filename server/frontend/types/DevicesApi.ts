@@ -126,8 +126,21 @@ export type GetDeviceApi = {
         String: string;
         Valid: boolean;
       };
-      DeviceType: {
-        Int16: number;
+      CombinedState: FullState;
+      Height: {
+        Int32: number;
+        Valid: boolean;
+      };
+      Speed: {
+        Int32: number;
+        Valid: boolean;
+      };
+      Accel: {
+        Int32: number;
+        Valid: boolean;
+      };
+      Altitude: {
+        Int32: number;
         Valid: boolean;
       };
       Packets: AltusPacket[];

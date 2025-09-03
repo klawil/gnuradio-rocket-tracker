@@ -6,7 +6,10 @@ import { timeToDelta, useTime } from "@/utils/time";
 import { typeFetch } from "@/utils/typeFetch";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useReducer, useState } from "react";
-import { Spinner, Tab, Table, Tabs } from "react-bootstrap";
+import Spinner from 'react-bootstrap/Spinner';
+import Tab from 'react-bootstrap/Tab';
+import Table from 'react-bootstrap/Table';
+import Tabs from 'react-bootstrap/Tabs';
 import styles from './styles.module.css';
 import { CircleMarker, MapContainer, Polyline } from "react-leaflet";
 import { MapMarker, TileLayers, useUserLocation, ZoomTwoDevices } from "@/utils/map";
@@ -73,7 +76,11 @@ export default function DevicePage() {
       Type: 0,
       DeviceName: response.Name,
       Serial: response.Serial,
-      StartPackets: response.Packets,
+      CombinedState: response.CombinedState,
+      Height: response.Height,
+      Speed: response.Speed,
+      Accel: response.Accel,
+      Altitude: response.Altitude,
     });
   }, []);
 
@@ -123,8 +130,8 @@ export default function DevicePage() {
   >{device.Igniters.Main.toFixed(1)} V</DeviceRow>
 
   return <>
-    <h1>Device {device.Name === null ? `Serial ${device.Serial}` : `${device.Name} (${device.Serial})`}</h1>
-    <h4>{device.Config.DeviceName}</h4>
+    <h1 className="text-center">Device {device.Name === null ? `Serial ${device.Serial}` : `${device.Name} (${device.Serial})`}</h1>
+    <h4 className="text-center">{device.Config.DeviceName}</h4>
 
     <Table className='table-borderless text-start'>
       <thead className='small'>
@@ -211,7 +218,7 @@ export default function DevicePage() {
             >{Math.round(device.Location.Altitude)} m</DeviceRow>
             <DeviceRow
               label='Max Altitude'
-            >{Math.round(device.Location.Altitude)} m</DeviceRow>
+            >{Math.round(device.Maximums.Altitude)} m</DeviceRow>
             {apogeeIgniterRow}
             {mainIgniterRow}
           </tbody>
@@ -228,7 +235,7 @@ export default function DevicePage() {
             >{Math.round(device.Maximums.Height)} m</DeviceRow>
             <DeviceRow
               label='Max Altitude'
-            >{Math.round(device.Location.Altitude)} m</DeviceRow>
+            >{Math.round(device.Maximums.Altitude)} m</DeviceRow>
           </tbody>
         </Table>
       </Tab>

@@ -42,7 +42,7 @@ namespace po = boost::program_options;
 gr::top_block_sptr tb;
 bool running = true;
 
-uint8_t channel_count = 5;
+uint16_t channel_count = 5;
 uint32_t input_center_freq = 435025000;
 double sample_rate = 10000000;
 const char * data_file = "../data.cfile";
@@ -256,7 +256,7 @@ void process_queue(
       );
       if (uint32_t(now.count() - last_message.count()) >= min_ping_wait) {
         if (socket_connected) {
-          std::cout << "Ping after " << uint32_t(now.count() - last_message.count()) << std::endl;
+          // std::cout << "Ping after " << uint32_t(now.count() - last_message.count()) << std::endl;
           write(socket_conn, ping_message.c_str(), ping_message.length());
         } else if (socket_conn == -1) {
           open_socket(socket_host, is_ip, socket_port);
@@ -326,13 +326,13 @@ int main(int argc, char **argv) {
     ("version,v", "Version Information")
     ("center_freq,c", po::value<uint32_t>(), "Input center frequency")
     ("sample_rate,s", po::value<uint32_t>(), "Sample rate")
-    ("squelch", po::value<int8_t>(), "Squelch level for power squelch")
+    ("squelch", po::value<int16_t>(), "Squelch level for power squelch")
     ("file,f", po::value<std::string>(), "File to use as a source (complex data)")
     ("source", po::value<std::string>(), "OSMO SDR source to use")
     ("socket", po::value<std::string>(), "Socket host to connect to")
     ("socket_ip", po::value<std::string>(), "Socket IP to connect to (default 127.0.0.1)")
     ("port", po::value<uint16_t>(), "Socket port to connect to (default 8765)")
-    ("channels", po::value<uint8_t>(),  "Number of channels to monitor (max 10)")
+    ("channels", po::value<uint16_t>(),  "Number of channels to monitor (max 10)")
     ("save_samples", "Save the samples to a data file")
     ("throttle", "Throttle (only applies to file source)");
 
@@ -358,12 +358,12 @@ int main(int argc, char **argv) {
     input_center_freq = vm["center_freq"].as<uint32_t>();
   }
   if (vm.count("channels")) {
-    channel_count = vm["channels"].as<uint8_t>();
+    channel_count = vm["channels"].as<uint16_t>();
     if (channel_count > MAX_CHANNELS) {
       channel_count = MAX_CHANNELS;
     }
   }
-  int8_t squelch = 60;
+  int16_t squelch = 60;
   if (vm.count("squelch")) {
     squelch = vm["squelch"].as<int8_t>();
   }
@@ -423,7 +423,7 @@ int main(int argc, char **argv) {
   std::cout << "  Number: " << std::fixed << std::setprecision(0) << channel_count << std::endl;
   std::cout << "  Min Freq: " << std::fixed << std::setprecision(4) << (float(min_channel_freq) / 1000000) << " MHz" << std::endl;
   std::cout << "  Max Freq: " << std::fixed << std::setprecision(4) << (float(max_channel_freq) / 1000000) << " MHz" << std::endl;
-  std::cout << "  Min Amplitude: " << std::fixed << std::setprecision(0) << squelch << " above noise" << std::endl;
+  std::cout << "  Min Amplitude: " << std::fixed << std::setprecision(0) << float(squelch) << " above noise" << std::endl;
   std::cout << std::endl << "Socket:" << std::endl;
   if (socket_host_is_ip) {
     std::cout << "  IP: " << socket_host << std::endl;
